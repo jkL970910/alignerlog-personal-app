@@ -134,7 +134,22 @@ export function SettingsDashboard() {
       const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: timeZoneHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify(settings)
+        body: JSON.stringify({
+          treatmentPlan: {
+            startDate: settings.treatmentPlan.startDate,
+            currentTrayNumber: settings.treatmentPlan.currentTrayNumber,
+            totalTrays: settings.treatmentPlan.totalTrays,
+            daysPerTray: settings.treatmentPlan.daysPerTray,
+            dailyGoalMinutes: settings.treatmentPlan.dailyGoalMinutes
+          },
+          reminderSettings: {
+            enableMealReminder: settings.reminderSettings.enableMealReminder,
+            mealReminderMinutes: settings.reminderSettings.mealReminderMinutes,
+            enableBedtimeReminder: settings.reminderSettings.enableBedtimeReminder,
+            bedtimeReminderTime: settings.reminderSettings.bedtimeReminderTime,
+            enableTrayChangeReminder: settings.reminderSettings.enableTrayChangeReminder
+          }
+        })
       });
       const payload = await response.json();
 

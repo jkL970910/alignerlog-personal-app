@@ -317,9 +317,16 @@ export async function updateTreatmentPlan(userId: string, patch: Partial<Pick<
   await getOrCreateTreatmentPlan(userId);
   const db = getDb();
   const now = new Date();
+  const safePatch = {
+    startDate: patch.startDate,
+    currentTrayNumber: patch.currentTrayNumber,
+    totalTrays: patch.totalTrays,
+    daysPerTray: patch.daysPerTray,
+    dailyGoalMinutes: patch.dailyGoalMinutes
+  };
   const [updated] = await db.update(treatmentPlans)
     .set({
-      ...patch,
+      ...safePatch,
       updatedAt: now
     })
     .where(eq(treatmentPlans.userId, userId))
@@ -332,9 +339,16 @@ export async function updateReminderSettings(userId: string, patch: Partial<Omit
   await getOrCreateReminderSettings(userId);
   const db = getDb();
   const now = new Date();
+  const safePatch = {
+    enableMealReminder: patch.enableMealReminder,
+    mealReminderMinutes: patch.mealReminderMinutes,
+    enableBedtimeReminder: patch.enableBedtimeReminder,
+    bedtimeReminderTime: patch.bedtimeReminderTime,
+    enableTrayChangeReminder: patch.enableTrayChangeReminder
+  };
   const [updated] = await db.update(reminderSettings)
     .set({
-      ...patch,
+      ...safePatch,
       updatedAt: now
     })
     .where(eq(reminderSettings.userId, userId))
