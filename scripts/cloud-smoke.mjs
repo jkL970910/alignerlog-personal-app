@@ -60,6 +60,17 @@ if (password) {
   }
 
   await expectStatus("/api/snapshot", { headers: { cookie } }, 200);
+  const calendar = await expectOk("/api/calendar", { headers: { cookie } });
+  const calendarPayload = await calendar.json();
+  if (!Array.isArray(calendarPayload.days) || calendarPayload.days.length < 28) {
+    throw new Error("Calendar API did not return a month grid.");
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  await expectOk("/api/notes", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", cookie },
+    body: JSON.stringify({ date: today, note: "cloud smoke note" })
+  });
   const settings = await expectOk("/api/settings", { headers: { cookie } });
   const settingsPayload = await settings.json();
   await expectOk("/api/settings", {

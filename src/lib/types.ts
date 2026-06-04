@@ -75,3 +75,11 @@ export type AppSnapshot = {
   activeSession: OffTraySession | null;
   todaySummary: DailySummary;
 };
+
+export type CalendarDay = {
+  date: string;
+  summary: DailySummary;
+  note: DailyNote | null;
+  hasData: boolean;
+  status: "no_data" | "goal_met" | "close" | "below_goal";
+};

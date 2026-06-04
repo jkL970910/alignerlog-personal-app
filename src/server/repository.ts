@@ -1,11 +1,11 @@
-import { and, asc, desc, eq, gt, isNull, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, gt, isNull, lte, lt, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
-import { offTraySessions, reminderSettings, treatmentPlans, wearStates } from "@/lib/db/schema";
+import { dailyNotes, offTraySessions, reminderSettings, treatmentPlans, wearStates } from "@/lib/db/schema";
 import { dayBounds, todayKey } from "@/lib/dates";
 import type { OffTrayReason, ReminderSettings, TreatmentPlan } from "@/lib/types";
 
-import { mapOffTraySession, mapReminderSettings, mapTreatmentPlan, mapWearState } from "./mappers";
+import { mapDailyNote, mapOffTraySession, mapReminderSettings, mapTreatmentPlan, mapWearState } from "./mappers";
 
 const defaultGoalMinutes = 22 * 60;
 
@@ -97,6 +97,39 @@ export async function listSessionsForRange(userId: string, startDate: string, en
     .orderBy(asc(offTraySessions.startAt));
 
   return rows.map(mapOffTraySession);
+}
+
+export async function listDailyNotesForRange(userId: string, startDate: string, endDate: string) {
+  const db = getDb();
+  const rows = await db.select().from(dailyNotes)
+    .where(and(
+      eq(dailyNotes.userId, userId),
+      gte(dailyNotes.date, startDate),
+      lte(dailyNotes.date, endDate)
+    ))
+    .orderBy(asc(dailyNotes.date));
+
+  return rows.map(mapDailyNote);
+}
+
+export async function upsertDailyNote(userId: string, date: string, note: string) {
+  const db = getDb();
+  const now = new Date();
+  const [updated] = await db.insert(dailyNotes).values({
+    userId,
+    date,
+    note,
+    createdAt: now,
+    updatedAt: now
+  }).onConflictDoUpdate({
+    target: [dailyNotes.userId, dailyNotes.date],
+    set: {
+      note,
+      updatedAt: now
+    }
+  }).returning();
+
+  return mapDailyNote(updated);
 }
 
 export async function startOffTraySession(userId: string, reason?: OffTrayReason) {
