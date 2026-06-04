@@ -1,6 +1,6 @@
 import { differenceInMinutes, isAfter, isBefore } from "date-fns";
 
-import { dateKeysBetween, dayBounds, elapsedMinutesInDay, minutesInDay, parseDateKey, todayKey } from "./dates";
+import { dateKeysBetweenKeys, dayBounds, elapsedMinutesInDay, minutesInDay, todayKey, toDateKey } from "./dates";
 import type { DailySummary, OffTraySession, TreatmentPlan } from "./types";
 
 type SplitSession = {
@@ -8,7 +8,7 @@ type SplitSession = {
   minutes: number;
 };
 
-export function splitSessionByDay(session: OffTraySession, now = new Date()): SplitSession[] {
+export function splitSessionByDay(session: OffTraySession, now = new Date(), timeZone = "UTC"): SplitSession[] {
   const start = new Date(session.startAt);
   const end = session.endAt ? new Date(session.endAt) : now;
 
@@ -16,11 +16,11 @@ export function splitSessionByDay(session: OffTraySession, now = new Date()): Sp
     return [];
   }
 
-  const firstDay = parseDateKey(dateKeyFromDate(start));
-  const lastDay = parseDateKey(dateKeyFromDate(end));
+  const firstDay = toDateKey(start, timeZone);
+  const lastDay = toDateKey(end, timeZone);
 
-  return dateKeysBetween(firstDay, lastDay).map((date) => {
-    const bounds = dayBounds(date);
+  return dateKeysBetweenKeys(firstDay, lastDay).map((date) => {
+    const bounds = dayBounds(date, timeZone);
     const segmentStart = isAfter(start, bounds.start) ? start : bounds.start;
     const segmentEnd = isBefore(end, bounds.end) ? end : bounds.end;
     const minutes = Math.max(0, differenceInMinutes(segmentEnd, segmentStart));
@@ -34,16 +34,18 @@ export function calculateDailySummary(params: {
   sessions: OffTraySession[];
   treatmentPlan: Pick<TreatmentPlan, "dailyGoalMinutes" | "currentTrayNumber">;
   now?: Date;
+  timeZone?: string;
 }): DailySummary {
   const now = params.now ?? new Date();
-  const offParts = params.sessions.flatMap((session) => splitSessionByDay(session, now));
+  const timeZone = params.timeZone ?? "UTC";
+  const offParts = params.sessions.flatMap((session) => splitSessionByDay(session, now, timeZone));
   const offMinutes = offParts
     .filter((part) => part.date === params.date)
     .reduce((total, part) => total + part.minutes, 0);
   const sessionCount = params.sessions.filter((session) => {
     const start = new Date(session.startAt);
     const end = session.endAt ? new Date(session.endAt) : now;
-    const bounds = dayBounds(params.date);
+    const bounds = dayBounds(params.date, timeZone);
 
     return isBefore(start, bounds.end) && isAfter(end, bounds.start);
   }).length;
@@ -51,8 +53,8 @@ export function calculateDailySummary(params: {
     .filter((part) => part.date === params.date)
     .reduce((longest, part) => Math.max(longest, part.minutes), 0);
   const hasData = sessionCount > 0 || offMinutes > 0;
-  const dayElapsed = elapsedMinutesInDay(params.date, now);
-  const wearMinutes = hasData ? clamp(dayElapsed - offMinutes, 0, minutesInDay(params.date)) : 0;
+  const dayElapsed = elapsedMinutesInDay(params.date, now, timeZone);
+  const wearMinutes = hasData ? clamp(dayElapsed - offMinutes, 0, minutesInDay(params.date, timeZone)) : 0;
 
   return {
     date: params.date,
@@ -73,14 +75,18 @@ export function calculateDailySummaries(params: {
   sessions: OffTraySession[];
   treatmentPlan: Pick<TreatmentPlan, "dailyGoalMinutes" | "currentTrayNumber">;
   now?: Date;
+  timeZone?: string;
 }) {
-  return dateKeysBetween(parseDateKey(params.startDate), parseDateKey(params.endDate))
-    .filter((date) => date <= todayKey(params.now))
+  const timeZone = params.timeZone ?? "UTC";
+
+  return dateKeysBetweenKeys(params.startDate, params.endDate)
+    .filter((date) => date <= todayKey(params.now, timeZone))
     .map((date) => calculateDailySummary({
       date,
       sessions: params.sessions,
       treatmentPlan: params.treatmentPlan,
-      now: params.now
+      now: params.now,
+      timeZone
     }));
 }
 
@@ -100,14 +106,6 @@ export function calculateHistoryMetrics(summaries: DailySummary[]) {
     averageOffTrayDuration: totalSessions ? totalOffMinutes / totalSessions : 0,
     longestOffTraySession: dated.reduce((longest, summary) => Math.max(longest, summary.longestOffSessionMinutes), 0)
   };
-}
-
-function dateKeyFromDate(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0")
-  ].join("-");
 }
 
 function average(values: number[]) {

@@ -49,6 +49,22 @@ describe("buildTreatmentPlanImportPreview", () => {
     expect(preview.progress.overallTotalTrays).toBe(20);
   });
 
+  it("uses the requested timezone when deriving current tray day", () => {
+    const preview = buildTreatmentPlanImportPreview({
+      status: "active",
+      seriesType: "active",
+      name: "第一阶段",
+      currentTrayNumber: 3,
+      totalTrays: 5,
+      trayIntervalDays: 7,
+      dailyGoalMinutes: 1320,
+      currentTrayStartDate: "2026-06-01"
+    }, new Date("2026-06-04T02:30:00Z"), "America/Toronto");
+
+    expect(preview.progress.currentTrayDay).toBe(3);
+    expect(preview.trays[2]?.status).toBe("current");
+  });
+
   it("pauses change countdown for holding status", () => {
     const preview = buildTreatmentPlanImportPreview({
       status: "holding",

@@ -5,6 +5,7 @@ import { addMonths, format, isSameMonth, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Loader2, Save } from "lucide-react";
 
 import { formatMinutes, formatPercent } from "@/lib/format";
+import { timeZoneHeaders } from "@/lib/client-time-zone";
 import type { CalendarDay } from "@/lib/types";
 
 import { SetupWarning } from "./setup-warning";
@@ -32,7 +33,7 @@ export function CalendarDashboard() {
 
   useEffect(() => {
     setState({ status: "loading" });
-    fetch(`/api/calendar?month=${monthKey}`)
+    fetch(`/api/calendar?month=${monthKey}`, { headers: timeZoneHeaders() })
       .then(async (response) => {
         const payload = await response.json();
 

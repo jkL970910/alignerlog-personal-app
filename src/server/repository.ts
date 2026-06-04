@@ -139,10 +139,10 @@ export async function getActiveSession(userId: string) {
   return active ? mapOffTraySession(active) : null;
 }
 
-export async function listSessionsForRange(userId: string, startDate: string, endDate: string) {
+export async function listSessionsForRange(userId: string, startDate: string, endDate: string, timeZone = "UTC") {
   const db = getDb();
-  const start = dayBounds(startDate).start;
-  const end = dayBounds(endDate).end;
+  const start = dayBounds(startDate, timeZone).start;
+  const end = dayBounds(endDate, timeZone).end;
   const rows = await db.select().from(offTraySessions)
     .where(and(
       eq(offTraySessions.userId, userId),

@@ -1,10 +1,11 @@
-import { addDays, endOfMonth, format, startOfMonth, startOfWeek } from "date-fns";
+import { addDays, endOfMonth, startOfMonth, startOfWeek } from "date-fns";
 
 import { dateKeysBetween, parseDateKey, todayKey, toDateKey } from "@/lib/dates";
 import { calculateDailySummary } from "@/lib/summaries";
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
 import { getOrCreateTreatmentPlan, listDailyNotesForRange, listSessionsForRange } from "@/server/repository";
+import { getRequestTimeZone } from "@/server/time-zone";
 
 export const runtime = "nodejs";
 
@@ -12,17 +13,18 @@ export async function GET(request: Request) {
   try {
     const userId = await requireCurrentUserId();
     const url = new URL(request.url);
-    const month = url.searchParams.get("month") ?? format(new Date(), "yyyy-MM");
+    const timeZone = getRequestTimeZone(request);
+    const month = url.searchParams.get("month") ?? todayKey(new Date(), timeZone).slice(0, 7);
     const monthStart = startOfMonth(new Date(`${month}-01T00:00:00`));
     const gridStart = startOfWeek(monthStart);
     const gridEnd = addDays(startOfWeek(endOfMonth(monthStart)), 6);
     const startDate = toDateKey(gridStart);
     const endDate = toDateKey(gridEnd);
     const treatmentPlan = await getOrCreateTreatmentPlan(userId);
-    const sessions = await listSessionsForRange(userId, startDate, endDate);
+    const sessions = await listSessionsForRange(userId, startDate, endDate, timeZone);
     const notes = await listDailyNotesForRange(userId, startDate, endDate);
     const notesByDate = new Map(notes.map((note) => [note.date, note]));
-    const today = todayKey();
+    const today = todayKey(new Date(), timeZone);
 
     return apiJson({
       month,
@@ -30,7 +32,7 @@ export async function GET(request: Request) {
       endDate,
       days: dateKeysBetween(parseDateKey(startDate), parseDateKey(endDate)).map((date) => {
         const summary = date <= today
-          ? calculateDailySummary({ date, sessions, treatmentPlan })
+          ? calculateDailySummary({ date, sessions, treatmentPlan, timeZone })
           : {
             date,
             offMinutes: 0,

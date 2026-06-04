@@ -1,5 +1,6 @@
 import { addDays, differenceInCalendarDays, format, parseISO, subDays } from "date-fns";
 
+import { todayKey as getTodayKey } from "./dates";
 import type {
   PlanProgress,
   PlannedTrayDraft,
@@ -13,8 +14,9 @@ export const treatmentSafetyNote = "Loo牙管理器只生成计划日程和记�
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
-export function buildTreatmentPlanImportPreview(input: TreatmentPlanImportInput, today = new Date()): TreatmentPlanImportPreview {
+export function buildTreatmentPlanImportPreview(input: TreatmentPlanImportInput, today = new Date(), timeZone = "UTC"): TreatmentPlanImportPreview {
   const normalized = normalizeImportInput(input);
+  const todayKey = getTodayKey(today, timeZone);
   const currentTrayStartDate = normalized.currentTrayStartDate
     ? parseDate(normalized.currentTrayStartDate)
     : subDays(parseDate(normalized.nextChangeDate as string), normalized.trayIntervalDays - 1);
@@ -27,7 +29,7 @@ export function buildTreatmentPlanImportPreview(input: TreatmentPlanImportInput,
     totalTrays: normalized.totalTrays,
     trayIntervalDays: normalized.trayIntervalDays,
     status: normalized.status,
-    today
+    todayKey
   });
   const progress = calculatePlanProgress({
     status: normalized.status,
@@ -39,7 +41,7 @@ export function buildTreatmentPlanImportPreview(input: TreatmentPlanImportInput,
     currentTrayStartDate: dateKey(currentTrayStartDate),
     nextChangeDate: normalized.nextChangeDate,
     trays,
-    today
+    todayKey
   });
 
   return {
@@ -77,8 +79,10 @@ export function calculatePlanProgress(params: {
   nextChangeDate?: string | null;
   trays?: PlannedTrayDraft[];
   today?: Date;
+  todayKey?: string;
+  timeZone?: string;
 }): PlanProgress {
-  const todayKey = dateKey(params.today ?? new Date());
+  const todayKey = params.todayKey ?? getTodayKey(params.today ?? new Date(), params.timeZone);
   const currentStart = parseDate(params.currentTrayStartDate);
   const currentTrayDay = Math.max(1, differenceInCalendarDays(parseDate(todayKey), currentStart) + 1);
   const generatedNext = dateKey(addDays(currentStart, params.trayIntervalDays));
@@ -109,10 +113,9 @@ function buildTrayDrafts(params: {
   totalTrays: number;
   trayIntervalDays: number;
   status: TreatmentStatus;
-  today: Date;
+  todayKey: string;
 }): PlannedTrayDraft[] {
   const currentStart = parseDate(params.currentTrayStartDate);
-  const todayKey = dateKey(params.today);
   const drafts: PlannedTrayDraft[] = [];
 
   for (let trayNumber = 1; trayNumber <= params.totalTrays; trayNumber += 1) {
@@ -129,7 +132,7 @@ function buildTrayDrafts(params: {
         currentTrayNumber: params.currentTrayNumber,
         status: params.status,
         plannedEndDate: dateKey(plannedEnd),
-        todayKey
+        todayKey: params.todayKey
       }),
       source: trayNumber === params.currentTrayNumber ? "imported" : "generated",
       note: ""

@@ -5,6 +5,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Loader2 } from "lucide-react";
 
 import { formatMinutes, formatPercent } from "@/lib/format";
+import { timeZoneHeaders } from "@/lib/client-time-zone";
 import type { DailySummary } from "@/lib/types";
 
 import { MetricCard } from "./metric-card";
@@ -29,7 +30,7 @@ export function HistoryDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/summaries")
+    fetch("/api/summaries", { headers: timeZoneHeaders() })
       .then(async (response) => {
         const payload = await response.json();
 

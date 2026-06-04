@@ -6,6 +6,7 @@ import { Download, Loader2, Save, Sparkles } from "lucide-react";
 
 import type { PlanProgress, ReminderSettings, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
 import { formatMinutes } from "@/lib/format";
+import { getClientTimeZone, timeZoneHeaders } from "@/lib/client-time-zone";
 
 import { SetupWarning } from "./setup-warning";
 
@@ -75,7 +76,7 @@ export function SettingsDashboard() {
   const [resetConfirmArmed, setResetConfirmArmed] = useState(false);
 
   useEffect(() => {
-    fetch("/api/settings")
+    fetch("/api/settings", { headers: timeZoneHeaders() })
       .then(async (response) => {
         const payload = await response.json();
 
@@ -122,7 +123,7 @@ export function SettingsDashboard() {
     try {
       const response = await fetch("/api/settings", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: timeZoneHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(settings)
       });
       const payload = await response.json();
@@ -146,7 +147,7 @@ export function SettingsDashboard() {
     try {
       const response = await fetch("/api/treatment-plan/import", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: timeZoneHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ mode: "preview", plan: normalizeImportDraft(importDraft) })
       });
       const payload = await response.json();
@@ -173,7 +174,7 @@ export function SettingsDashboard() {
         : "confirm";
       const response = await fetch("/api/treatment-plan/import", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: timeZoneHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ mode, plan: normalizeImportDraft(importDraft) })
       });
       const payload = await response.json();
@@ -270,6 +271,7 @@ export function SettingsDashboard() {
   const isNewPlanMode = planSetupMode === "new";
   const showPlanEditor = Boolean(planEditorOpen && planSetupMode);
   const planEditorTitle = hasRealPlan && editingExistingPlan ? "修改当前计划" : isNewPlanMode ? "开始新计划" : "导入已进行计划";
+  const exportTimeZone = encodeURIComponent(getClientTimeZone());
 
   return (
     <form className="space-y-4" onSubmit={save}>
@@ -582,11 +584,11 @@ export function SettingsDashboard() {
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-ink">数据导出</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <a className="flex min-h-12 items-center justify-center gap-2 rounded-md border border-ink/10 text-sm font-semibold text-ink" href="/api/export/json">
+          <a className="flex min-h-12 items-center justify-center gap-2 rounded-md border border-ink/10 text-sm font-semibold text-ink" href={`/api/export/json?timeZone=${exportTimeZone}`}>
             <Download className="h-4 w-4" />
             JSON
           </a>
-          <a className="flex min-h-12 items-center justify-center gap-2 rounded-md border border-ink/10 text-sm font-semibold text-ink" href="/api/export/csv">
+          <a className="flex min-h-12 items-center justify-center gap-2 rounded-md border border-ink/10 text-sm font-semibold text-ink" href={`/api/export/csv?timeZone=${exportTimeZone}`}>
             <Download className="h-4 w-4" />
             CSV
           </a>

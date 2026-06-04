@@ -9,12 +9,14 @@ import {
   updateReminderSettings,
   updateTreatmentPlan
 } from "@/server/repository";
+import { getRequestTimeZone } from "@/server/time-zone";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const userId = await requireCurrentUserId();
+    const timeZone = getRequestTimeZone(request);
     const activeSeries = await getActiveTreatmentSeries(userId);
     const plannedTrays = activeSeries ? await listPlannedTraysForSeries(userId, activeSeries.id) : [];
     const planProgress = activeSeries ? calculatePlanProgress({
@@ -26,7 +28,8 @@ export async function GET() {
       trayIntervalDays: activeSeries.trayIntervalDays,
       currentTrayStartDate: activeSeries.currentTrayStartDate,
       nextChangeDate: activeSeries.nextChangeDate,
-      trays: plannedTrays
+      trays: plannedTrays,
+      timeZone
     }) : null;
 
     return apiJson({
@@ -43,6 +46,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const userId = await requireCurrentUserId();
+    const timeZone = getRequestTimeZone(request);
     const body = await request.json() as {
       treatmentPlan?: Parameters<typeof updateTreatmentPlan>[1];
       reminderSettings?: Parameters<typeof updateReminderSettings>[1];
@@ -64,7 +68,8 @@ export async function PATCH(request: Request) {
       trayIntervalDays: activeSeries.trayIntervalDays,
       currentTrayStartDate: activeSeries.currentTrayStartDate,
       nextChangeDate: activeSeries.nextChangeDate,
-      trays: plannedTrays
+      trays: plannedTrays,
+      timeZone
     }) : null;
 
     return apiJson({ treatmentPlan, reminderSettings, activeSeries, planProgress });

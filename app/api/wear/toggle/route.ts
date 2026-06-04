@@ -1,4 +1,4 @@
-import { todayKey, toDateKey } from "@/lib/dates";
+import { addDaysToDateKey, todayKey } from "@/lib/dates";
 import { calculateDailySummary } from "@/lib/summaries";
 import type { OffTrayReason } from "@/lib/types";
 import { requireCurrentUserId } from "@/server/auth";
@@ -11,7 +11,7 @@ import {
   listSessionsForRange,
   startOffTraySession
 } from "@/server/repository";
-import { subDays } from "date-fns";
+import { getRequestTimeZone } from "@/server/time-zone";
 
 export const runtime = "nodejs";
 
@@ -23,6 +23,7 @@ type ToggleRequest = {
 export async function POST(request: Request) {
   try {
     const userId = await requireCurrentUserId();
+    const timeZone = getRequestTimeZone(request);
     const body = await request.json() as ToggleRequest;
     const action = body.action === "start" ? "start" : "end";
     const result = action === "start"
@@ -42,14 +43,15 @@ export async function POST(request: Request) {
       console.error("Failed to create wear action log.", error);
     });
     const now = new Date();
-    const date = todayKey(now);
+    const date = todayKey(now, timeZone);
     const treatmentPlan = await getOrCreateTreatmentPlan(userId);
-    const sessions = await listSessionsForRange(userId, toDateKey(subDays(now, 1)), date);
+    const sessions = await listSessionsForRange(userId, addDaysToDateKey(date, -1), date, timeZone);
     const todaySummary = calculateDailySummary({
       date,
       sessions,
       treatmentPlan,
-      now
+      now,
+      timeZone
     });
 
     return apiJson({

@@ -115,6 +115,28 @@ Acceptance:
 - If an active off-tray session exists, Today shows `已取下` after reload/deploy.
 - If status changes unexpectedly, the backend has per-action audit rows to inspect source and request metadata.
 
+## P0.3.2 User Time Zone Boundary
+
+Status: locally verified / pending deployment
+
+Tasks:
+
+- Capture the user's browser time zone with `Intl.DateTimeFormat().resolvedOptions().timeZone`. Implemented.
+- Send `X-Loo-Time-Zone` from Today, wear toggle, History, Calendar, Settings, and plan import requests. Implemented locally.
+- Support `timeZone` query parameter for export links. Implemented locally.
+- Compute Today, summaries, calendar session range, CSV export, and plan progress using the requested user time zone instead of server/UTC day boundaries. Implemented locally.
+- Keep imported plan dates as plain user-entered dates; only "today" and session aggregation use the time zone boundary. Implemented locally.
+- Add regression tests for Toronto local day boundary and DST day length. Implemented locally.
+- Deploy and verify on mobile. Pending.
+
+Acceptance:
+
+- In Toronto, "today" starts at local midnight, not UTC midnight.
+- A session that crosses UTC midnight but not Toronto midnight stays on the same local day.
+- A session that crosses Toronto midnight is split into two local days.
+- Today, History, Calendar, Settings plan progress, and CSV export use the same day boundary.
+- DST days use the actual local day length for elapsed-time calculations.
+
 ## P0.4 Loo牙大臣 Floating AI Agent
 
 Status: planned
@@ -160,11 +182,12 @@ Acceptance:
 
 ## Current Next Priorities
 
-1. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, History no-data and recorded-data states, Calendar notes/no-data states, Settings plan create/import/update/reset.
-2. Reminder UX clarification: rename `进食后提醒` to `吃饭摘下后提醒戴回`; decide whether to implement PWA local notification or defer.
-3. Calendar tray boundary markers from imported plan.
-4. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
-5. P1 exception flows: late change, tray extension, poor fit, lost/broken tray, waiting for refinement.
+1. Finish and deploy P0.3.2 user time zone boundary; QA Today status, Today wear minutes, plan progress, History, Calendar, and CSV export around local-day boundaries.
+2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, History no-data and recorded-data states, Calendar notes/no-data states, Settings plan create/import/update/reset.
+3. Reminder UX clarification: rename `进食后提醒` to `吃饭摘下后提醒戴回`; decide whether to implement PWA local notification or defer.
+4. Calendar tray boundary markers from imported plan.
+5. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
+6. P1 exception flows: late change, tray extension, poor fit, lost/broken tray, waiting for refinement.
 
 ## P1 Multi-Series And Exceptions
 

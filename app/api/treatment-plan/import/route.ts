@@ -4,6 +4,7 @@ import { buildTreatmentPlanImportPreview } from "@/lib/treatment-plan";
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
 import { getActiveTreatmentSeries, saveTreatmentPlanImport, updateActiveTreatmentSeries } from "@/server/repository";
+import { getRequestTimeZone } from "@/server/time-zone";
 
 export const runtime = "nodejs";
 
@@ -30,8 +31,9 @@ const importSchema = z.object({
 export async function POST(request: Request) {
   try {
     const userId = await requireCurrentUserId();
+    const timeZone = getRequestTimeZone(request);
     const parsed = importSchema.parse(await request.json());
-    const preview = buildTreatmentPlanImportPreview(parsed.plan);
+    const preview = buildTreatmentPlanImportPreview(parsed.plan, new Date(), timeZone);
 
     if (parsed.mode === "preview") {
       return apiJson(preview);

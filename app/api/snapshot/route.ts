@@ -1,6 +1,4 @@
-import { subDays } from "date-fns";
-
-import { todayKey, toDateKey } from "@/lib/dates";
+import { addDaysToDateKey, todayKey } from "@/lib/dates";
 import { calculateDailySummary } from "@/lib/summaries";
 import { calculatePlanProgress } from "@/lib/treatment-plan";
 import { requireCurrentUserId } from "@/server/auth";
@@ -14,14 +12,16 @@ import {
   listPlannedTraysForSeries,
   listSessionsForRange
 } from "@/server/repository";
+import { getRequestTimeZone } from "@/server/time-zone";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const userId = await requireCurrentUserId();
+    const timeZone = getRequestTimeZone(request);
     const now = new Date();
-    const date = todayKey(now);
+    const date = todayKey(now, timeZone);
     const treatmentPlan = await getOrCreateTreatmentPlan(userId);
     const persistedWearState = await getWearState(userId);
     const reminderSettings = await getOrCreateReminderSettings(userId);
@@ -45,12 +45,13 @@ export async function GET() {
       };
     const activeSeries = await getActiveTreatmentSeries(userId);
     const plannedTrays = activeSeries ? await listPlannedTraysForSeries(userId, activeSeries.id) : [];
-    const sessions = await listSessionsForRange(userId, toDateKey(subDays(now, 1)), date);
+    const sessions = await listSessionsForRange(userId, addDaysToDateKey(date, -1), date, timeZone);
     const todaySummary = calculateDailySummary({
       date,
       sessions,
       treatmentPlan,
-      now
+      now,
+      timeZone
     });
     const planProgress = activeSeries ? calculatePlanProgress({
       status: activeSeries.status,
@@ -62,7 +63,7 @@ export async function GET() {
       currentTrayStartDate: activeSeries.currentTrayStartDate,
       nextChangeDate: activeSeries.nextChangeDate,
       trays: plannedTrays,
-      today: now
+      todayKey: date
     }) : null;
 
     return apiJson({

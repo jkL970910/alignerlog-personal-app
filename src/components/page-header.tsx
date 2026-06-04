@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
+
 type PageHeaderProps = {
   eyebrow?: string;
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
 };
 
 export function PageHeader({ eyebrow, title, subtitle }: PageHeaderProps) {

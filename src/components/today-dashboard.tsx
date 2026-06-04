@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock, Loader2, ShieldCheck, Utensils } from "lucide-react";
 
 import { formatMinutes, formatPercent } from "@/lib/format";
+import { timeZoneHeaders } from "@/lib/client-time-zone";
 import type { AppSnapshot } from "@/lib/types";
 
 import { MetricCard } from "./metric-card";
@@ -19,7 +20,9 @@ export function TodayDashboard() {
   const [pending, setPending] = useState(false);
 
   async function load() {
-    const response = await fetch("/api/snapshot");
+    const response = await fetch("/api/snapshot", {
+      headers: timeZoneHeaders()
+    });
     const payload = await response.json();
 
     if (!response.ok) {
@@ -50,8 +53,10 @@ export function TodayDashboard() {
       const response = await fetch("/api/wear/toggle", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "X-Loo-Source": "today-dashboard"
+          ...timeZoneHeaders({
+            "Content-Type": "application/json",
+            "X-Loo-Source": "today-dashboard"
+          })
         },
         body: JSON.stringify({ action, reason: "meal" })
       });
