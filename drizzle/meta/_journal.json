@@ -29,6 +29,13 @@
       "when": 1780604700000,
       "tag": "0003_treatment_overall_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780613900000,
+      "tag": "0004_wear_action_logs",
+      "breakpoints": true
     }
   ]
 }

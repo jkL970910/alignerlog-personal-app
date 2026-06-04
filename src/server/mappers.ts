@@ -1,6 +1,6 @@
-import type { DailyNote, OffTraySession, PlannedTray, ReminderSettings, TreatmentPlan, TreatmentSeries, UserAccount, WearState } from "@/lib/types";
+import type { DailyNote, OffTraySession, PlannedTray, ReminderSettings, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
 
-import type { dailyNotes, offTraySessions, plannedTrays, reminderSettings, treatmentPlans, treatmentSeries, users, wearStates } from "@/lib/db/schema";
+import type { dailyNotes, offTraySessions, plannedTrays, reminderSettings, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 
 type UserRow = typeof users.$inferSelect;
 type TreatmentPlanRow = typeof treatmentPlans.$inferSelect;
@@ -10,6 +10,7 @@ type DailyNoteRow = typeof dailyNotes.$inferSelect;
 type ReminderSettingsRow = typeof reminderSettings.$inferSelect;
 type TreatmentSeriesRow = typeof treatmentSeries.$inferSelect;
 type PlannedTrayRow = typeof plannedTrays.$inferSelect;
+type WearActionLogRow = typeof wearActionLogs.$inferSelect;
 
 export function mapUser(row: UserRow): UserAccount {
   return {
@@ -75,5 +76,12 @@ export function mapPlannedTray(row: PlannedTrayRow): PlannedTray {
     ...row,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+export function mapWearActionLog(row: WearActionLogRow): WearActionLog {
+  return {
+    ...row,
+    createdAt: row.createdAt.toISOString()
   };
 }

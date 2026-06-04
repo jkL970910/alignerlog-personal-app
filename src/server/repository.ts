@@ -1,11 +1,11 @@
 import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
-import { dailyNotes, offTraySessions, plannedTrays, reminderSettings, treatmentPlans, treatmentSeries, users, wearStates } from "@/lib/db/schema";
+import { dailyNotes, offTraySessions, plannedTrays, reminderSettings, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 import { dayBounds, todayKey } from "@/lib/dates";
-import type { OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentPlan, TreatmentPlanImportPreview } from "@/lib/types";
+import type { OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
 
-import { mapDailyNote, mapOffTraySession, mapPlannedTray, mapReminderSettings, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearState } from "./mappers";
+import { mapDailyNote, mapOffTraySession, mapPlannedTray, mapReminderSettings, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
 
 const defaultGoalMinutes = 22 * 60;
 
@@ -280,6 +280,34 @@ export async function endActiveOffTraySession(userId: string) {
     activeSession: mapOffTraySession(session),
     changed: true
   };
+}
+
+export async function createWearActionLog(params: {
+  userId: string;
+  action: WearAction;
+  changed: boolean;
+  sessionId?: string | null;
+  resultingIsWearing: boolean;
+  requestId?: string | null;
+  source?: string | null;
+  userAgent?: string | null;
+  referer?: string | null;
+}) {
+  const db = getDb();
+  const [created] = await db.insert(wearActionLogs).values({
+    userId: params.userId,
+    action: params.action,
+    changed: params.changed,
+    sessionId: params.sessionId ?? null,
+    resultingIsWearing: params.resultingIsWearing,
+    requestId: params.requestId?.slice(0, 128) ?? null,
+    source: params.source?.slice(0, 80) ?? null,
+    userAgent: params.userAgent ?? null,
+    referer: params.referer ?? null,
+    createdAt: new Date()
+  }).returning();
+
+  return mapWearActionLog(created);
 }
 
 export async function updateTreatmentPlan(userId: string, patch: Partial<Pick<

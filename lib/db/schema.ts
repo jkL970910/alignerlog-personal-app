@@ -45,6 +45,11 @@ export const plannedTraySourceEnum = pgEnum("planned_tray_source", [
   "adjusted"
 ]);
 
+export const wearActionEnum = pgEnum("wear_action", [
+  "start",
+  "end"
+]);
+
 export const users = pgTable(
   "users",
   {
@@ -110,6 +115,27 @@ export const offTraySessions = pgTable(
     activeSessionIdx: uniqueIndex("off_tray_sessions_active_user_idx")
       .on(table.userId)
       .where(sql`${table.endAt} IS NULL`)
+  })
+);
+
+export const wearActionLogs = pgTable(
+  "wear_action_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    action: wearActionEnum("action").notNull(),
+    changed: boolean("changed").notNull(),
+    sessionId: uuid("session_id"),
+    resultingIsWearing: boolean("resulting_is_wearing").notNull(),
+    requestId: varchar("request_id", { length: 128 }),
+    source: varchar("source", { length: 80 }),
+    userAgent: text("user_agent"),
+    referer: text("referer"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userCreatedIdx: index("wear_action_logs_user_created_idx").on(table.userId, table.createdAt),
+    sessionIdx: index("wear_action_logs_session_idx").on(table.sessionId)
   })
 );
 

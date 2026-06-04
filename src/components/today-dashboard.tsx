@@ -49,7 +49,10 @@ export function TodayDashboard() {
     try {
       const response = await fetch("/api/wear/toggle", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Loo-Source": "today-dashboard"
+        },
         body: JSON.stringify({ action, reason: "meal" })
       });
       const payload = await response.json();

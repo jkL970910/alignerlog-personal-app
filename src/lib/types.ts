@@ -2,6 +2,8 @@ export type WearStatus = "wearing" | "out";
 
 export type OffTrayReason = "meal" | "drink" | "brushing" | "other";
 
+export type WearAction = "start" | "end";
+
 export type ReminderStatus = "none" | "scheduled" | "sent" | "cancelled";
 
 export type UserAccount = {
@@ -42,6 +44,20 @@ export type OffTraySession = {
   reminderStatus: ReminderStatus;
   createdAt: string;
   updatedAt: string;
+};
+
+export type WearActionLog = {
+  id: string;
+  userId: string;
+  action: WearAction;
+  changed: boolean;
+  sessionId: string | null;
+  resultingIsWearing: boolean;
+  requestId: string | null;
+  source: string | null;
+  userAgent: string | null;
+  referer: string | null;
+  createdAt: string;
 };
 
 export type DailyNote = {
