@@ -86,10 +86,12 @@ enable push on the Reminders page. Meal/off-tray reminders are not automatic
 meal detection: the reminder job is scheduled only after the user taps
 `我取下牙套了`.
 
-Vercel Cron calls `/api/workers/reminders/run` every five minutes. The worker
-accepts either:
+Vercel Hobby does not support five-minute cron schedules, so the deployable
+baseline exposes a protected reminder worker endpoint first. Use Cloudflare
+Worker Cron for production five-minute scheduling, or call the endpoint manually
+for smoke checks. The worker accepts either:
 
-- `Authorization: Bearer $CRON_SECRET` from Vercel Cron.
+- `Authorization: Bearer $CRON_SECRET` from an external scheduler.
 - `x-worker-secret: $REMINDER_WORKER_SECRET` for manual smoke calls.
 
 Manual smoke without sending user data:

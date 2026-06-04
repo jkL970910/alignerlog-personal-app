@@ -3,11 +3,5 @@
   "framework": "nextjs",
   "buildCommand": "npm run cloud:build",
   "installCommand": "npm install",
-  "outputDirectory": ".next",
-  "crons": [
-    {
-      "path": "/api/workers/reminders/run",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  "outputDirectory": ".next"
 }
