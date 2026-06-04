@@ -151,7 +151,11 @@ export function CalendarDashboard() {
                   type="button"
                 >
                   <span className="font-semibold">{format(date, "d")}</span>
-                  {day.note?.note ? <span className="mt-1 h-1.5 w-1.5 rounded-full bg-ink/60" /> : null}
+                  <div className="mt-1 flex items-center gap-1">
+                    {day.trayEvents.some((event) => event.kind === "start") ? <span className="h-1.5 w-1.5 rounded-full bg-sage" /> : null}
+                    {day.trayEvents.some((event) => event.kind === "end") ? <span className="h-1.5 w-1.5 rounded-full bg-amber" /> : null}
+                    {day.note?.note ? <span className="h-1.5 w-1.5 rounded-full bg-ink/60" /> : null}
+                  </div>
                 </button>
               );
             })}
@@ -179,6 +183,20 @@ export function CalendarDashboard() {
             <Detail label="目标" value={formatMinutes(selectedDay.summary.goalMinutes)} />
             <Detail label="次数" value={String(selectedDay.summary.sessionCount)} />
           </div>
+
+          {selectedDay.trayEvents.length ? (
+            <div className="mt-4 rounded-md border border-amber/20 bg-mist/50 p-3">
+              <p className="text-xs font-semibold tracking-[0.16em] text-sage">牙套计划</p>
+              <div className="mt-2 space-y-2">
+                {selectedDay.trayEvents.map((event) => (
+                  <div className="flex items-center justify-between rounded-md bg-white/80 px-3 py-2 text-sm" key={`${event.kind}-${event.trayNumber}`}>
+                    <span className="font-semibold text-ink">{event.label}</span>
+                    <span className="text-xs text-ink/50">{event.kind === "start" ? "开始日" : "结束日"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="daily-note">
             <span className="flex items-center justify-between gap-2">

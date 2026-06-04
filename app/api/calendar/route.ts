@@ -2,9 +2,16 @@ import { addDays, endOfMonth, startOfMonth, startOfWeek } from "date-fns";
 
 import { dateKeysBetween, parseDateKey, todayKey, toDateKey } from "@/lib/dates";
 import { calculateDailySummary } from "@/lib/summaries";
+import type { CalendarTrayEvent, PlannedTray } from "@/lib/types";
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
-import { getOrCreateTreatmentPlan, listDailyNotesForRange, listSessionsForRange } from "@/server/repository";
+import {
+  getActiveTreatmentSeries,
+  getOrCreateTreatmentPlan,
+  listDailyNotesForRange,
+  listPlannedTraysForSeries,
+  listSessionsForRange
+} from "@/server/repository";
 import { getRequestTimeZone } from "@/server/time-zone";
 
 export const runtime = "nodejs";
@@ -21,6 +28,9 @@ export async function GET(request: Request) {
     const startDate = toDateKey(gridStart);
     const endDate = toDateKey(gridEnd);
     const treatmentPlan = await getOrCreateTreatmentPlan(userId);
+    const activeSeries = await getActiveTreatmentSeries(userId);
+    const plannedTrays = activeSeries ? await listPlannedTraysForSeries(userId, activeSeries.id) : [];
+    const trayEventsByDate = buildTrayEventsByDate(plannedTrays);
     const sessions = await listSessionsForRange(userId, startDate, endDate, timeZone);
     const notes = await listDailyNotesForRange(userId, startDate, endDate);
     const notesByDate = new Map(notes.map((note) => [note.date, note]));
@@ -49,6 +59,7 @@ export async function GET(request: Request) {
           date,
           summary,
           note: notesByDate.get(date) ?? null,
+          trayEvents: trayEventsByDate.get(date) ?? [],
           hasData: hasCalendarData(summary, Boolean(notesByDate.get(date))),
           status: getCalendarStatus(summary, Boolean(notesByDate.get(date)))
         };
@@ -57,6 +68,32 @@ export async function GET(request: Request) {
   } catch (error) {
     return apiError(error);
   }
+}
+
+function buildTrayEventsByDate(plannedTrays: PlannedTray[]) {
+  const eventsByDate = new Map<string, CalendarTrayEvent[]>();
+
+  plannedTrays.forEach((tray) => {
+    addTrayEvent(eventsByDate, tray.plannedStartDate, {
+      trayNumber: tray.trayNumber,
+      kind: "start",
+      label: `第 ${tray.trayNumber} 副开始`
+    });
+    addTrayEvent(eventsByDate, tray.plannedEndDate, {
+      trayNumber: tray.trayNumber,
+      kind: "end",
+      label: `第 ${tray.trayNumber} 副结束`
+    });
+  });
+
+  return eventsByDate;
+}
+
+function addTrayEvent(eventsByDate: Map<string, CalendarTrayEvent[]>, date: string, event: CalendarTrayEvent) {
+  const events = eventsByDate.get(date) ?? [];
+
+  events.push(event);
+  eventsByDate.set(date, events);
 }
 
 function hasCalendarData(summary: {

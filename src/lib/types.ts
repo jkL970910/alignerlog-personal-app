@@ -105,8 +105,15 @@ export type CalendarDay = {
   date: string;
   summary: DailySummary;
   note: DailyNote | null;
+  trayEvents: CalendarTrayEvent[];
   hasData: boolean;
   status: "no_data" | "goal_met" | "close" | "below_goal";
+};
+
+export type CalendarTrayEvent = {
+  trayNumber: number;
+  kind: "start" | "end";
+  label: string;
 };
 
 export type TreatmentStatus = "not_started" | "active" | "holding" | "waiting_refinement" | "retainer";

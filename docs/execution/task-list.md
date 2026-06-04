@@ -177,6 +177,8 @@ Tasks:
 - Scope Settings save payload and repository updates to editable fields only, preventing ISO timestamp strings from being written back to timestamp columns. Implemented locally.
 - Add visible Settings time zone control for manual override of the user's day boundary. Implemented locally.
 - Clarify Calendar daily note persistence with saved-state feedback and note-only day labeling. Implemented locally.
+- Clarify reminder UX as manual off-tray timer, not automatic meal detection. Implemented locally.
+- Add Calendar tray boundary markers and selected-day tray start/end details from imported plan. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
@@ -188,12 +190,10 @@ Acceptance:
 
 ## Current Next Priorities
 
-1. Deploy Settings time zone control and Calendar note saved feedback.
-2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data states, Settings plan create/import/update/reset.
-3. Reminder UX clarification: rename `进食后提醒` to `吃饭摘下后提醒戴回`; decide whether to implement PWA local notification or defer.
-4. Calendar tray boundary markers from imported plan.
-5. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
-6. P1 exception flows: late change, tray extension, poor fit, lost/broken tray, waiting for refinement.
+1. Deploy reminder UX clarification and Calendar tray boundary markers.
+2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data/tray-boundary states, Settings plan create/import/update/reset.
+3. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
+4. P1 exception flows: late change, tray extension, poor fit, lost/broken tray, waiting for refinement.
 
 ## P1 Multi-Series And Exceptions
 

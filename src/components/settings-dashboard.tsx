@@ -676,7 +676,7 @@ export function SettingsDashboard() {
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-ink">提醒偏好</h2>
         <label className="mt-4 flex items-center justify-between gap-3 text-sm text-ink">
-          <span>进食后提醒</span>
+          <span>摘下后提醒戴回</span>
           <input
             checked={settings.reminderSettings.enableMealReminder}
             className="h-5 w-5 accent-mint"
@@ -709,6 +709,9 @@ export function SettingsDashboard() {
             <option key={minutes} value={minutes}>{minutes} 分钟</option>
           ))}
         </select>
+        <p className="mt-2 text-xs leading-5 text-ink/50">
+          这个提醒基于你手动点击“我取下牙套了”的时间开始计时，不会自动识别吃饭。
+        </p>
       </section>
 
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
