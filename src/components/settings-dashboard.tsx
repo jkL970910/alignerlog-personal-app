@@ -47,6 +47,8 @@ const timeZoneOptions = [
   "UTC"
 ];
 
+const mealReminderMinuteOptions = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180];
+
 function createDefaultImport(mode: PlanSetupMode = "import", dailyGoalMinutes = 1320): ImportState {
   const today = getClientDateKey();
   const isNewPlan = mode === "new";
@@ -705,7 +707,7 @@ export function SettingsDashboard() {
           })}
           value={settings.reminderSettings.mealReminderMinutes}
         >
-          {[30, 45, 60, 90].map((minutes) => (
+          {mealReminderMinuteOptions.map((minutes) => (
             <option key={minutes} value={minutes}>{minutes} 分钟</option>
           ))}
         </select>

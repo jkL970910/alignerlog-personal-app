@@ -128,7 +128,7 @@ function getTimeZoneOffsetMs(date: Date, timeZone: string) {
   return asUtc - date.getTime();
 }
 
-function zonedDateTimeToUtc(dateKey: string, hour: number, minute: number, second: number, timeZone: string) {
+export function zonedDateTimeToUtc(dateKey: string, hour: number, minute: number, second: number, timeZone: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
   const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
   const firstOffset = getTimeZoneOffsetMs(new Date(utcGuess), timeZone);
@@ -136,4 +136,22 @@ function zonedDateTimeToUtc(dateKey: string, hour: number, minute: number, secon
   const secondOffset = getTimeZoneOffsetMs(new Date(firstUtc), timeZone);
 
   return new Date(utcGuess - secondOffset);
+}
+
+export function localDateTimeToUtc(value: string, timeZone = defaultTimeZone) {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/.exec(value);
+
+  if (!match) {
+    throw new Error("请输入有效的补记时间。");
+  }
+
+  const [, dateKey, hourText, minuteText] = match;
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new Error("请输入有效的补记时间。");
+  }
+
+  return zonedDateTimeToUtc(dateKey, hour, minute, 0, normalizeTimeZone(timeZone));
 }

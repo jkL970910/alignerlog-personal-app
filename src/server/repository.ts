@@ -284,6 +284,49 @@ export async function endActiveOffTraySession(userId: string) {
   };
 }
 
+export async function createManualOffTraySession(params: {
+  userId: string;
+  startAt: Date;
+  endAt: Date;
+  reason?: OffTrayReason;
+}) {
+  if (params.endAt.getTime() <= params.startAt.getTime()) {
+    throw new Error("戴回时间必须晚于取下时间。");
+  }
+
+  const now = new Date();
+
+  if (params.startAt.getTime() > now.getTime() || params.endAt.getTime() > now.getTime()) {
+    throw new Error("补记时间不能晚于当前时间。");
+  }
+
+  const db = getDb();
+  const overlapping = await db.select().from(offTraySessions)
+    .where(and(
+      eq(offTraySessions.userId, params.userId),
+      lt(offTraySessions.startAt, params.endAt),
+      or(isNull(offTraySessions.endAt), gt(offTraySessions.endAt, params.startAt))
+    ))
+    .limit(1);
+
+  if (overlapping.length > 0) {
+    throw new Error("补记时间与已有取下记录重叠，请调整时间。");
+  }
+
+  const [session] = await db.insert(offTraySessions).values({
+    userId: params.userId,
+    startAt: params.startAt,
+    endAt: params.endAt,
+    reason: params.reason ?? "other",
+    reminderAt: null,
+    reminderStatus: "none",
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+
+  return mapOffTraySession(session);
+}
+
 export async function createWearActionLog(params: {
   userId: string;
   action: WearAction;

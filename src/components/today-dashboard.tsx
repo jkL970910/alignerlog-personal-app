@@ -18,6 +18,11 @@ type ApiState =
 export function TodayDashboard() {
   const [state, setState] = useState<ApiState>({ status: "loading" });
   const [pending, setPending] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualStart, setManualStart] = useState("");
+  const [manualEnd, setManualEnd] = useState("");
+  const [manualPending, setManualPending] = useState(false);
+  const [manualMessage, setManualMessage] = useState<string | null>(null);
 
   async function load() {
     const response = await fetch("/api/snapshot", {
@@ -79,6 +84,55 @@ export function TodayDashboard() {
       setState({ status: "error", error: error instanceof Error ? error.message : "无法更新佩戴状态。" });
     } finally {
       setPending(false);
+    }
+  }
+
+  async function saveManualSession() {
+    if (state.status !== "ready") {
+      return;
+    }
+
+    setManualPending(true);
+    setManualMessage(null);
+
+    try {
+      const response = await fetch("/api/wear/manual-session", {
+        method: "POST",
+        headers: {
+          ...timeZoneHeaders({
+            "Content-Type": "application/json",
+            "X-Loo-Source": "today-manual-session"
+          })
+        },
+        body: JSON.stringify({
+          startLocal: manualStart,
+          endLocal: manualEnd,
+          reason: "other"
+        })
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "无法保存补记。");
+      }
+
+      setState({
+        status: "ready",
+        data: {
+          ...state.data,
+          wearState: payload.wearState,
+          activeSession: payload.activeSession,
+          todaySummary: payload.todaySummary
+        }
+      });
+      setManualMessage("已补记这段取下时间。");
+      setManualStart("");
+      setManualEnd("");
+      setManualOpen(false);
+    } catch (error) {
+      setManualMessage(error instanceof Error ? error.message : "无法保存补记。");
+    } finally {
+      setManualPending(false);
     }
   }
 
@@ -158,6 +212,59 @@ export function TodayDashboard() {
         </button>
       </section>
 
+      <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
+        <button
+          className="flex w-full items-center justify-between gap-3 text-left"
+          onClick={() => setManualOpen((open) => !open)}
+          type="button"
+        >
+          <div>
+            <h2 className="font-semibold text-ink">补记取下时间</h2>
+            <p className="mt-1 text-sm leading-6 text-ink/60">
+              忘记点击“我取下牙套了”时，可以补回一段已经结束的未佩戴时间。
+            </p>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-ink/45">{manualOpen ? "收起" : "补记"}</span>
+        </button>
+        {manualOpen ? (
+          <div className="mt-4 space-y-3">
+            <label className="block text-sm font-medium text-ink/70">
+              取下时间
+              <input
+                className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
+                max={toDateTimeLocalValue(new Date())}
+                onChange={(event) => setManualStart(event.target.value)}
+                type="datetime-local"
+                value={manualStart}
+              />
+            </label>
+            <label className="block text-sm font-medium text-ink/70">
+              戴回时间
+              <input
+                className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
+                max={toDateTimeLocalValue(new Date())}
+                onChange={(event) => setManualEnd(event.target.value)}
+                type="datetime-local"
+                value={manualEnd}
+              />
+            </label>
+            <p className="text-xs leading-5 text-ink/50">
+              只用于补录过去已经结束的取下时段；不会改变当前“佩戴中/已取下”状态，也不会创建推送提醒。
+            </p>
+            <button
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+              disabled={manualPending || !manualStart || !manualEnd}
+              onClick={saveManualSession}
+              type="button"
+            >
+              {manualPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              保存补记
+            </button>
+          </div>
+        ) : null}
+        {manualMessage ? <p className={`mt-3 text-xs ${manualMessage.startsWith("已") ? "text-sage" : "text-coral"}`}>{manualMessage}</p> : null}
+      </section>
+
       <div className="grid grid-cols-2 gap-3">
         <MetricCard label="今日已戴" value={todaySummary.hasData ? formatMinutes(todaySummary.wearMinutes) : "暂无记录"} helper={`目标 ${formatMinutes(treatmentPlan.dailyGoalMinutes)}`} />
         <MetricCard label={isWearing ? "还差" : "已取下"} value={todaySummary.hasData ? isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes) : "首次打卡后计算"} />
@@ -176,6 +283,12 @@ export function TodayDashboard() {
       </p>
     </div>
   );
+}
+
+function toDateTimeLocalValue(date: Date) {
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 function getProgressText(progress: NonNullable<AppSnapshot["planProgress"]>) {
