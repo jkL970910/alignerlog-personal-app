@@ -213,19 +213,21 @@ export function TodayDashboard() {
       </section>
 
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
-        <button
-          className="flex w-full items-center justify-between gap-3 text-left"
-          onClick={() => setManualOpen((open) => !open)}
-          type="button"
-        >
-          <div>
-            <h2 className="font-semibold text-ink">补记取下时间</h2>
-            <p className="mt-1 text-sm leading-6 text-ink/60">
-              忘记点击“我取下牙套了”时，可以补回一段已经结束的未佩戴时间。
-            </p>
-          </div>
-          <span className="shrink-0 text-xs font-semibold text-ink/45">{manualOpen ? "收起" : "补记"}</span>
-        </button>
+        <div>
+          <h2 className="font-semibold text-ink">补记取下时间</h2>
+          <p className="mt-1 text-sm leading-6 text-ink/60">
+            忘记点击“我取下牙套了”时，可以补回一段已经结束的未佩戴时间。
+          </p>
+        </div>
+        {!manualOpen ? (
+          <button
+            className="mt-4 flex min-h-11 w-full items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white"
+            onClick={() => setManualOpen(true)}
+            type="button"
+          >
+            补记一段取下时间
+          </button>
+        ) : null}
         {manualOpen ? (
           <div className="mt-4 space-y-3">
             <label className="block text-sm font-medium text-ink/70">
@@ -259,6 +261,17 @@ export function TodayDashboard() {
             >
               {manualPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               保存补记
+            </button>
+            <button
+              className="flex min-h-11 w-full items-center justify-center rounded-md border border-ink/10 px-4 text-sm font-semibold text-ink"
+              onClick={() => {
+                setManualOpen(false);
+                setManualStart("");
+                setManualEnd("");
+              }}
+              type="button"
+            >
+              取消补记
             </button>
           </div>
         ) : null}
