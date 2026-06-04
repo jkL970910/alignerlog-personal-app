@@ -1,5 +1,7 @@
 const appUrl = process.env.APP_BASE_URL;
 const password = process.env.ALIGNERLOG_LOGIN_PASSWORD;
+const smokeEmail = process.env.ALIGNERLOG_SMOKE_EMAIL ?? "smoke@loo-dental.local";
+const smokePassword = process.env.ALIGNERLOG_SMOKE_PASSWORD ?? password;
 const confirmImport = process.env.ALIGNERLOG_SMOKE_CONFIRM_IMPORT === "true";
 
 if (!appUrl) {
@@ -46,21 +48,43 @@ await expectStatus(
   401
 );
 
-if (password) {
-  const login = await expectStatus(
+if (smokePassword) {
+  const loginResponse = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: smokeEmail, password: smokePassword })
+  });
+  const login = loginResponse.status === 200
+    ? loginResponse
+    : await expectStatus(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: smokeEmail, password: smokePassword })
+      },
+      200
+    );
+
+  if (loginResponse.status !== 200 && loginResponse.status !== 401) {
+    throw new Error(`/api/auth/login expected 200 or 401 for smoke user, received ${loginResponse.status}`);
+  }
+
+  const cookie = login.headers.get("set-cookie")?.split(";")[0];
+
+  if (!cookie) {
+    throw new Error("Login/register did not return a session cookie.");
+  }
+
+  await expectStatus(
     "/api/auth/login",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ email: smokeEmail, password: "wrong-password" })
     },
-    200
+    401
   );
-  const cookie = login.headers.get("set-cookie")?.split(";")[0];
-
-  if (!cookie) {
-    throw new Error("Login did not return a session cookie.");
-  }
 
   await expectStatus("/api/snapshot", { headers: { cookie } }, 200);
   const calendar = await expectOk("/api/calendar", { headers: { cookie } });

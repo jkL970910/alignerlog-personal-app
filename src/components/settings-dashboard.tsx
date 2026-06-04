@@ -16,27 +16,33 @@ type SettingsPayload = {
 
 type ImportState = TreatmentPlanImportInput;
 
-const defaultImport: ImportState = {
+function createDefaultImport(): ImportState {
+  const today = new Date().toISOString().slice(0, 10);
+
+  return {
   status: "active",
   seriesType: "active",
   name: "第一阶段",
   currentTrayNumber: 1,
-  totalTrays: 20,
-  overallTotalTrays: 20,
-  overallTreatmentDays: 140,
+    totalTrays: 1,
+    overallTotalTrays: 1,
+    overallTreatmentDays: 7,
   trayIntervalDays: 7,
   dailyGoalMinutes: 1320,
-  currentTrayStartDate: new Date().toISOString().slice(0, 10),
+    currentTrayStartDate: today,
+    nextChangeDate: addDaysKey(today, 7),
   clinicianNotes: ""
 };
+}
 
 export function SettingsDashboard() {
   const [settings, setSettings] = useState<SettingsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [importDraft, setImportDraft] = useState<ImportState>(defaultImport);
+  const [importDraft, setImportDraft] = useState<ImportState>(() => createDefaultImport());
   const [importPreview, setImportPreview] = useState<TreatmentPlanImportPreview | null>(null);
   const [importPending, setImportPending] = useState(false);
+  const [importDraftInitialized, setImportDraftInitialized] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -51,6 +57,29 @@ export function SettingsDashboard() {
       })
       .catch((err: Error) => setError(err.message));
   }, []);
+
+  useEffect(() => {
+    if (!settings || importDraftInitialized) {
+      return;
+    }
+
+    const base = createDefaultImport();
+    const totalTrays = settings.treatmentPlan.totalTrays ?? base.totalTrays;
+    const currentTrayStartDate = settings.treatmentPlan.startDate || base.currentTrayStartDate || new Date().toISOString().slice(0, 10);
+
+    setImportDraft({
+      ...base,
+      currentTrayNumber: settings.treatmentPlan.currentTrayNumber,
+      totalTrays,
+      overallTotalTrays: totalTrays,
+      overallTreatmentDays: totalTrays * settings.treatmentPlan.daysPerTray,
+      trayIntervalDays: settings.treatmentPlan.daysPerTray,
+      dailyGoalMinutes: settings.treatmentPlan.dailyGoalMinutes,
+      currentTrayStartDate,
+      nextChangeDate: addDaysKey(currentTrayStartDate, settings.treatmentPlan.daysPerTray) ?? base.nextChangeDate ?? currentTrayStartDate
+    });
+    setImportDraftInitialized(true);
+  }, [importDraftInitialized, settings]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
