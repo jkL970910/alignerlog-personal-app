@@ -2,6 +2,7 @@ import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 
 import { cookies } from "next/headers";
 
+
 export const sessionCookieName = "alignerlog_session";
 const sessionMaxAgeSeconds = 60 * 60 * 24 * 30;
 
@@ -113,6 +114,13 @@ export async function requireCurrentUserId() {
   const userId = await getCurrentUserId();
 
   if (!userId) {
+    throw new Error("Unauthorized.");
+  }
+
+  const { getUserById } = await import("./repository");
+  const user = await getUserById(userId);
+
+  if (!user) {
     throw new Error("Unauthorized.");
   }
 

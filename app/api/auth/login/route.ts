@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createSessionToken, normalizeEmail, sessionCookieName, sessionCookieOptions, verifyLoginPassword, verifyPassword } from "@/server/auth";
+import { createSessionToken, normalizeEmail, sessionCookieName, sessionCookieOptions, verifyPassword } from "@/server/auth";
 import { getUserByEmail } from "@/server/repository";
 
 export const runtime = "nodejs";
@@ -18,25 +18,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Incorrect email or password." }, { status: 401 });
   }
 
-  if (parsed.data.email) {
-    const user = await getUserByEmail(normalizeEmail(parsed.data.email));
-
-    if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
-      return NextResponse.json({ error: "Incorrect email or password." }, { status: 401 });
-    }
-
-    const response = NextResponse.json({ ok: true });
-    response.cookies.set(sessionCookieName, createSessionToken(user.id), sessionCookieOptions());
-
-    return response;
+  if (!parsed.data.email) {
+    return NextResponse.json({ error: "Incorrect email or password." }, { status: 401 });
   }
 
-  if (!verifyLoginPassword(parsed.data.password)) {
-    return NextResponse.json({ error: "Incorrect password." }, { status: 401 });
+  const user = await getUserByEmail(normalizeEmail(parsed.data.email));
+
+  if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
+    return NextResponse.json({ error: "Incorrect email or password." }, { status: 401 });
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(sessionCookieName, createSessionToken(), sessionCookieOptions());
+  response.cookies.set(sessionCookieName, createSessionToken(user.id), sessionCookieOptions());
 
   return response;
 }

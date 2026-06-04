@@ -1,7 +1,6 @@
 const appUrl = process.env.APP_BASE_URL;
-const password = process.env.ALIGNERLOG_LOGIN_PASSWORD;
 const smokeEmail = process.env.ALIGNERLOG_SMOKE_EMAIL ?? "smoke@loo-dental.local";
-const smokePassword = process.env.ALIGNERLOG_SMOKE_PASSWORD ?? password;
+const smokePassword = process.env.ALIGNERLOG_SMOKE_PASSWORD ?? process.env.ALIGNERLOG_LOGIN_PASSWORD;
 const confirmImport = process.env.ALIGNERLOG_SMOKE_CONFIRM_IMPORT === "true";
 
 if (!appUrl) {
