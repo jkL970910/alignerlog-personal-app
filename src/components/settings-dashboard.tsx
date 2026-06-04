@@ -20,6 +20,14 @@ type SettingsPayload = {
 
 type ImportState = TreatmentPlanImportInput;
 type PlanSetupMode = "new" | "import";
+type NumberPickerState = {
+  title: string;
+  helper?: string;
+  value: number;
+  options: number[];
+  formatValue?: (value: number) => string;
+  onSelect: (value: number) => void;
+} | null;
 
 function createDefaultImport(mode: PlanSetupMode = "import", dailyGoalMinutes = 1320): ImportState {
   const today = getClientDateKey();
@@ -75,6 +83,7 @@ export function SettingsDashboard() {
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
   const [editingExistingPlan, setEditingExistingPlan] = useState(false);
   const [resetConfirmArmed, setResetConfirmArmed] = useState(false);
+  const [numberPicker, setNumberPicker] = useState<NumberPickerState>(null);
 
   useEffect(() => {
     fetch("/api/settings", { headers: timeZoneHeaders() })
@@ -289,25 +298,26 @@ export function SettingsDashboard() {
           </div>
         </div>
 
-        <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="dailyGoalMinutes">
-          每日佩戴目标
-          <input
-            className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
-            id="dailyGoalMinutes"
-            inputMode="numeric"
-            min={60}
-            onChange={(event) => setSettings({
+        <NumberPickerField
+          className="mt-4"
+          helper="默认 22 小时，可按医生要求调整。"
+          label="每日佩戴目标"
+          onOpen={() => setNumberPicker({
+            title: "每日佩戴目标",
+            helper: "选择医生要求的每日佩戴目标。",
+            value: settings.treatmentPlan.dailyGoalMinutes,
+            options: minuteOptions(),
+            formatValue: formatMinutes,
+            onSelect: (value) => setSettings({
               ...settings,
               treatmentPlan: {
                 ...settings.treatmentPlan,
-                dailyGoalMinutes: Number(event.target.value)
+                dailyGoalMinutes: value
               }
-            })}
-            type="number"
-            value={settings.treatmentPlan.dailyGoalMinutes}
-          />
-          <span className="mt-1 block text-xs leading-5 text-ink/50">默认 22 小时，可按医生要求调整。</span>
-        </label>
+            })
+          })}
+          value={formatMinutes(settings.treatmentPlan.dailyGoalMinutes)}
+        />
 
         {hasRealPlan && settings.activeSeries && progress ? (
           <div className="mt-4 rounded-md border border-mint/20 bg-mint/10 p-3">
@@ -467,12 +477,78 @@ export function SettingsDashboard() {
                 </select>
               </label>
 
-              <ImportField label={isNewPlanMode ? "起始第几副" : "当前第几副"} min={1} value={importDraft.currentTrayNumber} onChange={(value) => updateImportDraft({ ...importDraft, currentTrayNumber: value })} />
-              <ImportField label="当前阶段总副数" helper="例如这一盒/这一阶段共有 20 副；未来精修可之后再加。" min={1} value={importDraft.totalTrays} onChange={(value) => updateImportDraft({ ...importDraft, totalTrays: value, overallTotalTrays: Math.max(importDraft.overallTotalTrays ?? value, value) })} />
-              <ImportField label="全程预估总副数" helper="如果医生给了整体副数就填；不知道可先等于当前阶段。" min={1} value={importDraft.overallTotalTrays ?? importDraft.totalTrays} onChange={(value) => updateImportDraft({ ...importDraft, overallTotalTrays: value })} />
-              <ImportField label="治疗总周期天数" helper="可选。比如 20 副 x 7 天 = 140 天。" min={1} value={importDraft.overallTreatmentDays ?? importDraft.totalTrays * importDraft.trayIntervalDays} onChange={(value) => updateImportDraft({ ...importDraft, overallTreatmentDays: value })} />
-              <ImportField label="每副佩戴天数" helper="医生要求的换副周期，常见 7/10/14 天。" min={1} value={importDraft.trayIntervalDays} onChange={(value) => updateImportSchedule({ trayIntervalDays: value, overallTreatmentDays: (importDraft.overallTotalTrays ?? importDraft.totalTrays) * value })} />
-              <ImportField label="每日目标分钟" min={60} value={importDraft.dailyGoalMinutes} onChange={(value) => updateImportDraft({ ...importDraft, dailyGoalMinutes: value })} />
+              <ImportNumberPickerField
+                label={isNewPlanMode ? "起始第几副" : "当前第几副"}
+                onOpen={() => setNumberPicker({
+                  title: isNewPlanMode ? "起始第几副" : "当前第几副",
+                  value: importDraft.currentTrayNumber,
+                  options: rangeOptions(1, Math.max(80, importDraft.totalTrays)),
+                  formatValue: (value) => `第 ${value} 副`,
+                  onSelect: (value) => updateImportDraft({ ...importDraft, currentTrayNumber: value })
+                })}
+                value={`第 ${importDraft.currentTrayNumber} 副`}
+              />
+              <ImportNumberPickerField
+                helper="例如这一盒/这一阶段共有 20 副；未来精修可之后再加。"
+                label="当前阶段总副数"
+                onOpen={() => setNumberPicker({
+                  title: "当前阶段总副数",
+                  helper: "不能小于当前第几副。",
+                  value: importDraft.totalTrays,
+                  options: rangeOptions(Math.max(1, importDraft.currentTrayNumber), 100),
+                  formatValue: (value) => `${value} 副`,
+                  onSelect: (value) => updateImportDraft({ ...importDraft, totalTrays: value, overallTotalTrays: Math.max(importDraft.overallTotalTrays ?? value, value) })
+                })}
+                value={`${importDraft.totalTrays} 副`}
+              />
+              <ImportNumberPickerField
+                helper="如果医生给了整体副数就填；不知道可先等于当前阶段。"
+                label="全程预估总副数"
+                onOpen={() => setNumberPicker({
+                  title: "全程预估总副数",
+                  helper: "不能小于当前第几副。",
+                  value: importDraft.overallTotalTrays ?? importDraft.totalTrays,
+                  options: rangeOptions(Math.max(1, importDraft.currentTrayNumber), 120),
+                  formatValue: (value) => `${value} 副`,
+                  onSelect: (value) => updateImportDraft({ ...importDraft, overallTotalTrays: value })
+                })}
+                value={`${importDraft.overallTotalTrays ?? importDraft.totalTrays} 副`}
+              />
+              <ImportNumberPickerField
+                helper="可选。比如 20 副 x 7 天 = 140 天。"
+                label="治疗总周期天数"
+                onOpen={() => setNumberPicker({
+                  title: "治疗总周期天数",
+                  value: importDraft.overallTreatmentDays ?? importDraft.totalTrays * importDraft.trayIntervalDays,
+                  options: rangeOptions(7, 900, 7),
+                  formatValue: (value) => `${value} 天`,
+                  onSelect: (value) => updateImportDraft({ ...importDraft, overallTreatmentDays: value })
+                })}
+                value={`${importDraft.overallTreatmentDays ?? importDraft.totalTrays * importDraft.trayIntervalDays} 天`}
+              />
+              <ImportNumberPickerField
+                helper="医生要求的换副周期，常见 7/10/14 天。"
+                label="每副佩戴天数"
+                onOpen={() => setNumberPicker({
+                  title: "每副佩戴天数",
+                  value: importDraft.trayIntervalDays,
+                  options: rangeOptions(1, 30),
+                  formatValue: (value) => `${value} 天`,
+                  onSelect: (value) => updateImportSchedule({ trayIntervalDays: value, overallTreatmentDays: (importDraft.overallTotalTrays ?? importDraft.totalTrays) * value })
+                })}
+                value={`${importDraft.trayIntervalDays} 天`}
+              />
+              <ImportNumberPickerField
+                label="每日目标"
+                onOpen={() => setNumberPicker({
+                  title: "每日目标",
+                  value: importDraft.dailyGoalMinutes,
+                  options: minuteOptions(),
+                  formatValue: formatMinutes,
+                  onSelect: (value) => updateImportDraft({ ...importDraft, dailyGoalMinutes: value })
+                })}
+                value={formatMinutes(importDraft.dailyGoalMinutes)}
+              />
 
               <p className="col-span-2 rounded-md bg-mist/60 p-3 text-xs leading-5 text-ink/60">
                 日期只用于首次生成日程：优先填“{isNewPlanMode ? "计划开始日期" : "当前副开始日期"}”。之后每周/每期换牙套由系统按每副天数自动计算，不需要重复填写。
@@ -614,33 +690,91 @@ export function SettingsDashboard() {
           <LogoutButton variant="wide" />
         </div>
       </section>
+
+      <NumberPickerSheet picker={numberPicker} onClose={() => setNumberPicker(null)} />
     </form>
   );
 }
 
-function ImportField(props: {
+function NumberPickerField(props: {
   label: string;
   helper?: string;
-  value: number;
-  min: number;
-  onChange: (value: number) => void;
+  value: string;
+  className?: string;
+  onOpen: () => void;
 }) {
-  const id = `import-${props.label.length}`;
+  return (
+    <div className={`block text-sm font-medium text-ink/70 ${props.className ?? ""}`}>
+      {props.label}
+      <button
+        className="mt-2 flex min-h-12 w-full items-center justify-between rounded-md border border-ink/10 bg-paper px-3 text-left text-ink outline-none transition focus:border-mint"
+        onClick={props.onOpen}
+        type="button"
+      >
+        <span>{props.value}</span>
+        <span className="text-xs text-ink/40">选择</span>
+      </button>
+      {props.helper ? <span className="mt-1 block text-xs leading-5 text-ink/50">{props.helper}</span> : null}
+    </div>
+  );
+}
+
+function ImportNumberPickerField(props: {
+  label: string;
+  helper?: string;
+  value: string;
+  onOpen: () => void;
+}) {
+  return <NumberPickerField {...props} />;
+}
+
+function NumberPickerSheet(props: {
+  picker: NumberPickerState;
+  onClose: () => void;
+}) {
+  if (!props.picker) {
+    return null;
+  }
+
+  const { picker } = props;
 
   return (
-    <label className="block text-sm font-medium text-ink/70" htmlFor={id}>
-      {props.label}
-      <input
-        className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
-        id={id}
-        inputMode="numeric"
-        min={props.min}
-        onChange={(event) => props.onChange(Number(event.target.value))}
-        type="number"
-        value={props.value}
-      />
-      {props.helper ? <span className="mt-1 block text-xs leading-5 text-ink/50">{props.helper}</span> : null}
-    </label>
+    <div className="fixed inset-0 z-40 flex items-end bg-ink/30 px-3 pb-3" role="dialog" aria-modal="true">
+      <button className="absolute inset-0 cursor-default" onClick={props.onClose} type="button" aria-label="关闭选择器" />
+      <div className="safe-bottom relative z-10 mx-auto w-full max-w-md rounded-t-3xl border border-ink/10 bg-white p-4 shadow-[0_-20px_60px_rgba(91,47,55,0.18)]">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-ink/15" />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-ink">{picker.title}</h3>
+            {picker.helper ? <p className="mt-1 text-sm leading-5 text-ink/60">{picker.helper}</p> : null}
+          </div>
+          <button className="rounded-full px-3 py-1 text-sm font-semibold text-ink/60" onClick={props.onClose} type="button">
+            取消
+          </button>
+        </div>
+        <div className="mt-4 max-h-[45vh] snap-y overflow-y-auto rounded-md border border-ink/10 bg-paper">
+          {picker.options.map((option) => {
+            const active = option === picker.value;
+
+            return (
+              <button
+                className={`flex min-h-12 w-full snap-center items-center justify-center border-b border-ink/5 px-4 text-base font-semibold last:border-b-0 ${
+                  active ? "bg-mint/15 text-ink" : "text-ink/70"
+                }`}
+                key={option}
+                onClick={() => {
+                  picker.onSelect(option);
+                  props.onClose();
+                }}
+                type="button"
+              >
+                {picker.formatValue ? picker.formatValue(option) : option}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -742,6 +876,24 @@ function normalizeImportDraft(draft: ImportState): TreatmentPlanImportInput {
     appointmentDate: draft.appointmentDate || undefined,
     clinicianNotes: draft.clinicianNotes?.trim() || undefined
   };
+}
+
+function rangeOptions(min: number, max: number, step = 1) {
+  const options: number[] = [];
+
+  for (let value = min; value <= max; value += step) {
+    options.push(value);
+  }
+
+  return options;
+}
+
+function minuteOptions() {
+  return [
+    ...rangeOptions(60, 1140, 60),
+    ...rangeOptions(1200, 1380, 15),
+    1440
+  ];
 }
 
 function addDaysKey(dateKey: string, days: number) {

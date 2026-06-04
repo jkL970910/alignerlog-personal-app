@@ -173,6 +173,7 @@ Tasks:
 - Deploy to Vercel after signoff. Completed for current deployed slices.
 - Run cloud smoke. Public route checks completed; authenticated write smoke should only run when explicitly requested because it creates/updates smoke account data.
 - Move logout out of bottom navigation and into Settings account area to reduce mobile mis-taps. Implemented locally.
+- Replace plan numeric free-text inputs with bottom-sheet pickers to prevent invalid mobile input states. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
@@ -184,7 +185,7 @@ Acceptance:
 
 ## Current Next Priorities
 
-1. Deploy Settings logout relocation and verify bottom nav no longer contains a logout tap target.
+1. Deploy Settings mobile picker inputs and verify plan numeric fields cannot be cleared to invalid values.
 2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data states, Settings plan create/import/update/reset.
 3. Reminder UX clarification: rename `进食后提醒` to `吃饭摘下后提醒戴回`; decide whether to implement PWA local notification or defer.
 4. Calendar tray boundary markers from imported plan.
