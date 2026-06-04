@@ -47,7 +47,7 @@ export function SettingsDashboard() {
   const [importPreview, setImportPreview] = useState<TreatmentPlanImportPreview | null>(null);
   const [importPending, setImportPending] = useState(false);
   const [importDraftInitialized, setImportDraftInitialized] = useState(false);
-  const [planSetupMode, setPlanSetupMode] = useState<PlanSetupMode>("import");
+  const [planSetupMode, setPlanSetupMode] = useState<PlanSetupMode | null>(null);
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
 
   useEffect(() => {
@@ -94,8 +94,8 @@ export function SettingsDashboard() {
       setPlanEditorOpen(false);
     } else {
       setImportDraft(base);
-      setPlanSetupMode("import");
-      setPlanEditorOpen(true);
+      setPlanSetupMode(null);
+      setPlanEditorOpen(false);
     }
     setImportDraftInitialized(true);
   }, [importDraftInitialized, settings]);
@@ -234,6 +234,7 @@ export function SettingsDashboard() {
   const progress = settings.planProgress;
   const planCtaTitle = hasRealPlan ? "调整牙套计划" : "设置你的牙套计划";
   const isNewPlanMode = planSetupMode === "new";
+  const showPlanEditor = Boolean(planEditorOpen && planSetupMode);
 
   return (
     <form className="space-y-4" onSubmit={save}>
@@ -280,7 +281,10 @@ export function SettingsDashboard() {
               </div>
               <button
                 className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
-                onClick={() => setPlanEditorOpen((open) => !open)}
+                onClick={() => {
+                  setPlanSetupMode(planSetupMode ?? (settings.activeSeries?.currentTrayNumber && settings.activeSeries.currentTrayNumber > 1 ? "import" : "new"));
+                  setPlanEditorOpen((open) => !open);
+                }}
                 type="button"
               >
                 {planEditorOpen ? "收起" : "调整"}
@@ -324,14 +328,17 @@ export function SettingsDashboard() {
         {!planEditorOpen && hasRealPlan ? (
           <button
             className="mt-3 min-h-12 w-full rounded-md border border-ink/10 px-4 text-sm font-semibold text-ink"
-            onClick={() => setPlanEditorOpen(true)}
+            onClick={() => {
+              setPlanSetupMode(planSetupMode ?? "import");
+              setPlanEditorOpen(true);
+            }}
             type="button"
           >
             {planCtaTitle}
           </button>
         ) : null}
 
-        {planEditorOpen ? (
+        {showPlanEditor ? (
           <>
             <div className="mt-4 rounded-md bg-mist/60 p-3 text-xs leading-5 text-ink/60">
               {isNewPlanMode
