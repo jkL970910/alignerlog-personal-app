@@ -4,9 +4,34 @@
 
 Do not run background audit/check tasks by default during normal development. Run an audit only when the user explicitly requests it or confirms a key-feature signoff / pre-deployment gate.
 
+## Working Rule For This Task List
+
+Update this task list whenever a meaningful feature slice is completed, pushed, or deployed. The task list is the source of truth for current implementation progress before starting the next slice.
+
+## P0.0 Cloud, Auth, And Mobile URL Baseline
+
+Status: deployed
+
+Tasks:
+
+- Pull initial GitHub repo and preserve the project as a separate app from Loo国 / portfolio-manager. Completed.
+- Add Vercel + separate Neon Postgres deployment baseline under the same personal cloud account family. Completed.
+- Add registration and login pages. Completed.
+- Protect app pages and APIs behind signed sessions. Completed.
+- Require registered users for sessions; removed password-only singleton login path. Completed.
+- Keep database separate from portfolio-manager. Completed.
+- Deploy stable mobile PWA URL. Completed: `https://alignerlog-personal-app.vercel.app`.
+
+Acceptance:
+
+- New users can register and log in from the mobile URL.
+- Protected pages redirect unauthenticated users.
+- User data is partitioned by registered account.
+- Cloud deployment is reproducible through Vercel.
+
 ## P0.1 Product Renaming And Chinese UX
 
-Status: completed locally
+Status: deployed
 
 Tasks:
 
@@ -24,7 +49,7 @@ Acceptance:
 
 ## P0.2 Guided Plan Import
 
-Status: implemented locally
+Status: deployed
 
 Tasks:
 
@@ -35,6 +60,10 @@ Tasks:
 - Support 7/10/14/custom-day intervals. Implemented as custom day input.
 - Support status values: not started, active, holding/passive, waiting for refinement, retainer.
 - Preview generated schedule before save. Implemented.
+- Persist confirm path atomically so active series and planned trays cannot be partially written. Completed.
+- Separate default settings from real dental plans; new accounts do not display default values as a saved plan. Completed.
+- Keep plan setup form collapsed until user chooses `开始新计划` or `导入已进行计划`. Completed.
+- Protect existing plans: `修改当前计划` updates the active series in place; ordinary confirm is rejected when an active plan exists; reset/re-import is explicit. Completed.
 
 Acceptance:
 
@@ -42,10 +71,11 @@ Acceptance:
 - System generates current known-series schedule rows.
 - Generated schedule does not create fake wear-session history.
 - Same account's existing wear logs remain intact after import.
+- Existing active plan is not overwritten unless user explicitly chooses reset/re-import.
 
 ## P0.3 Plan Progress Dashboard
 
-Status: partially implemented locally
+Status: deployed first pass
 
 Tasks:
 
@@ -53,13 +83,32 @@ Tasks:
 - Extend snapshot API or add plan-progress API. Implemented via snapshot `planProgress`.
 - Show current tray, current tray day, days to next change, trays remaining, and estimated current-series end date. Implemented on Today except estimated end date is currently in import preview.
 - Mark paused/holding/waiting states clearly.
-- Add tray boundary markers to Calendar.
+- Add tray boundary markers to Calendar. Not yet implemented.
 
 Acceptance:
 
 - Today page shows `第 X / Y 副`.
 - Today page shows next planned change date and remaining days.
 - Calendar shows tray boundaries without implying medical approval to change trays.
+
+## P0.3.1 Data Truthfulness And Empty-State Semantics
+
+Status: deployed
+
+Tasks:
+
+- Stop calculating wear time for dates that have no real wear/off-tray records. Completed.
+- Add `DailySummary.hasData` and use it in Today, History, and Calendar. Completed.
+- Make Today show `暂无记录` instead of invented `今日已戴` minutes before first real check-in. Completed.
+- Make History averages/charts use only recorded days. Completed.
+- Keep no-data calendar days gray / `暂无佩戴记录`. Completed.
+
+Acceptance:
+
+- New accounts do not show fake 7-day/30-day averages.
+- History does not show near-24-hour bars for days without logs.
+- Today metrics begin only after user performs a real tracking action.
+- Calendar no-data status stays visually distinct from success/failure.
 
 ## P0.4 Loo牙大臣 Floating AI Agent
 
@@ -86,15 +135,16 @@ Acceptance:
 
 ## P0.5 Manual QA And Deploy
 
-Status: planned
+Status: partially complete / ongoing
 
 Tasks:
 
 - Add manual QA checklist for plan import, progress, Chinese copy, and AI safety cases.
-- Run local verification: tests, typecheck, build.
-- Ask user whether to run pre-deployment audit.
-- Deploy to Vercel after signoff.
-- Run cloud smoke.
+- Run local verification: tests, typecheck, build. Completed for deployed P0.0-P0.3.1 slices.
+- Ask user whether to run pre-deployment audit. Active rule established.
+- Deploy to Vercel after signoff. Completed for current deployed slices.
+- Run cloud smoke. Public route checks completed; authenticated write smoke should only run when explicitly requested because it creates/updates smoke account data.
+- Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
 
@@ -102,6 +152,14 @@ Acceptance:
 - Registration/login still works.
 - Existing Today/Calendar/Notes flows still work.
 - Plan import/progress and AI route are protected by auth.
+
+## Current Next Priorities
+
+1. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, History no-data and recorded-data states, Calendar notes/no-data states, Settings plan create/import/update/reset.
+2. Reminder UX clarification: rename `进食后提醒` to `吃饭摘下后提醒戴回`; decide whether to implement PWA local notification or defer.
+3. Calendar tray boundary markers from imported plan.
+4. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
+5. P1 exception flows: late change, tray extension, poor fit, lost/broken tray, waiting for refinement.
 
 ## P1 Multi-Series And Exceptions
 
