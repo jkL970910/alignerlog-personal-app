@@ -1,0 +1,84 @@
+import { describe, expect, it } from "vitest";
+
+import { calculateDailySummary, splitSessionByDay } from "./summaries";
+import type { OffTraySession, TreatmentPlan } from "./types";
+
+const treatmentPlan: Pick<TreatmentPlan, "dailyGoalMinutes" | "currentTrayNumber"> = {
+  dailyGoalMinutes: 1320,
+  currentTrayNumber: 4
+};
+
+function session(overrides: Partial<OffTraySession>): OffTraySession {
+  return {
+    id: "session-1",
+    userId: "personal",
+    startAt: "2026-05-31T23:50:00",
+    endAt: "2026-06-01T00:20:00",
+    reason: "meal",
+    reminderAt: null,
+    reminderStatus: "none",
+    createdAt: "2026-05-31T23:50:00",
+    updatedAt: "2026-06-01T00:20:00",
+    ...overrides
+  };
+}
+
+describe("splitSessionByDay", () => {
+  it("splits sessions across midnight", () => {
+    const parts = splitSessionByDay(session({}), new Date("2026-06-01T00:20:00"));
+
+    expect(parts).toEqual([
+      { date: "2026-05-31", minutes: 10 },
+      { date: "2026-06-01", minutes: 20 }
+    ]);
+  });
+
+  it("uses now for active sessions", () => {
+    const parts = splitSessionByDay(
+      session({
+        startAt: "2026-06-01T12:00:00",
+        endAt: null
+      }),
+      new Date("2026-06-01T12:45:00")
+    );
+
+    expect(parts).toEqual([{ date: "2026-06-01", minutes: 45 }]);
+  });
+});
+
+describe("calculateDailySummary", () => {
+  it("calculates current-day wear minutes from elapsed day minus off time", () => {
+    const summary = calculateDailySummary({
+      date: "2026-06-01",
+      sessions: [
+        session({
+          startAt: "2026-06-01T10:00:00",
+          endAt: "2026-06-01T11:30:00"
+        })
+      ],
+      treatmentPlan,
+      now: new Date("2026-06-01T12:00:00")
+    });
+
+    expect(summary.offMinutes).toBe(90);
+    expect(summary.wearMinutes).toBe(630);
+    expect(summary.goalMet).toBe(false);
+  });
+
+  it("counts a completed goal day", () => {
+    const summary = calculateDailySummary({
+      date: "2026-05-31",
+      sessions: [
+        session({
+          startAt: "2026-05-31T12:00:00",
+          endAt: "2026-05-31T13:00:00"
+        })
+      ],
+      treatmentPlan,
+      now: new Date("2026-06-01T12:00:00")
+    });
+
+    expect(summary.wearMinutes).toBe(1380);
+    expect(summary.goalMet).toBe(true);
+  });
+});

@@ -1,0 +1,104 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Loader2 } from "lucide-react";
+
+import { formatMinutes, formatPercent } from "@/lib/format";
+import type { DailySummary } from "@/lib/types";
+
+import { MetricCard } from "./metric-card";
+import { SetupWarning } from "./setup-warning";
+
+type Metrics = {
+  sevenDayAverage: number;
+  thirtyDayAverage: number;
+  goalAchievementRate: number;
+  longestGoalStreak: number;
+  averageOffTrayDuration: number;
+  longestOffTraySession: number;
+};
+
+type HistoryPayload = {
+  summaries: DailySummary[];
+  metrics: Metrics;
+};
+
+export function HistoryDashboard() {
+  const [data, setData] = useState<HistoryPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/summaries")
+      .then(async (response) => {
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Could not load history.");
+        }
+
+        setData(payload);
+      })
+      .catch((err: Error) => setError(err.message));
+  }, []);
+
+  if (error) {
+    return <SetupWarning message={error} />;
+  }
+
+  if (!data) {
+    return (
+      <div className="flex min-h-72 items-center justify-center rounded-md border border-ink/10 bg-white/75">
+        <Loader2 className="h-6 w-6 animate-spin text-sage" />
+      </div>
+    );
+  }
+
+  const chartData = data.summaries.slice(-14).map((summary) => ({
+    date: summary.date.slice(5),
+    hours: Number((summary.wearMinutes / 60).toFixed(1))
+  }));
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <MetricCard label="7 day avg" value={formatMinutes(data.metrics.sevenDayAverage)} />
+        <MetricCard label="30 day avg" value={formatMinutes(data.metrics.thirtyDayAverage)} />
+        <MetricCard label="Goal rate" value={formatPercent(data.metrics.goalAchievementRate)} />
+        <MetricCard label="Best streak" value={`${data.metrics.longestGoalStreak}d`} />
+      </div>
+
+      <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
+        <h2 className="mb-4 text-base font-semibold text-ink">Last 14 days</h2>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 8, right: 0, left: -24, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dfe7e3" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6f8f7c" />
+              <YAxis tick={{ fontSize: 11 }} stroke="#6f8f7c" />
+              <Tooltip formatter={(value) => [`${value}h`, "Worn"]} />
+              <Bar dataKey="hours" radius={[4, 4, 0, 0]} fill="#4fb493" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        {data.summaries.slice(-10).reverse().map((summary) => (
+          <div className="flex items-center justify-between rounded-md border border-ink/10 bg-white/80 p-3" key={summary.date}>
+            <div>
+              <p className="font-medium text-ink">{summary.date}</p>
+              <p className="text-sm text-ink/60">{summary.sessionCount} off-tray sessions</p>
+            </div>
+            <div className="text-right">
+              <p className="font-semibold text-ink">{formatMinutes(summary.wearMinutes)}</p>
+              <p className={`text-sm ${summary.goalMet ? "text-mint" : "text-coral"}`}>
+                {summary.goalMet ? "Goal met" : "Below goal"}
+              </p>
+            </div>
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
