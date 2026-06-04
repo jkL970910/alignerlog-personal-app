@@ -6,7 +6,15 @@ import { Download, Loader2, Save, Sparkles } from "lucide-react";
 
 import type { PlanProgress, ReminderSettings, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
 import { formatMinutes } from "@/lib/format";
-import { getClientDateKey, getClientTimeZone, timeZoneHeaders } from "@/lib/client-time-zone";
+import {
+  getClientDateKey,
+  getClientTimeZone,
+  getDetectedTimeZone,
+  isTimeZoneManuallySet,
+  resetClientTimeZone,
+  setClientTimeZone,
+  timeZoneHeaders
+} from "@/lib/client-time-zone";
 
 import { LogoutButton } from "./logout-button";
 import { SetupWarning } from "./setup-warning";
@@ -28,6 +36,16 @@ type NumberPickerState = {
   formatValue?: (value: number) => string;
   onSelect: (value: number) => void;
 } | null;
+
+const timeZoneOptions = [
+  "America/Toronto",
+  "America/New_York",
+  "America/Vancouver",
+  "America/Los_Angeles",
+  "Asia/Shanghai",
+  "Asia/Tokyo",
+  "UTC"
+];
 
 function createDefaultImport(mode: PlanSetupMode = "import", dailyGoalMinutes = 1320): ImportState {
   const today = getClientDateKey();
@@ -84,20 +102,39 @@ export function SettingsDashboard() {
   const [editingExistingPlan, setEditingExistingPlan] = useState(false);
   const [resetConfirmArmed, setResetConfirmArmed] = useState(false);
   const [numberPicker, setNumberPicker] = useState<NumberPickerState>(null);
+  const [timeZone, setTimeZone] = useState(() => getClientTimeZone());
+  const [manualTimeZone, setManualTimeZone] = useState(() => isTimeZoneManuallySet());
 
   useEffect(() => {
-    fetch("/api/settings", { headers: timeZoneHeaders() })
-      .then(async (response) => {
-        const payload = await response.json();
-
-        if (!response.ok) {
-          throw new Error(payload.error ?? "无法载入设置。");
-        }
-
-        setSettings(payload);
-      })
-      .catch((err: Error) => setError(err.message));
+    loadSettings().catch((err: Error) => setError(err.message));
   }, []);
+
+  async function loadSettings() {
+    const response = await fetch("/api/settings", { headers: timeZoneHeaders() });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.error ?? "无法载入设置。");
+    }
+
+    setSettings(payload);
+  }
+
+  async function changeTimeZone(nextTimeZone: string) {
+    const next = setClientTimeZone(nextTimeZone);
+
+    setTimeZone(next);
+    setManualTimeZone(true);
+    await loadSettings();
+  }
+
+  async function resetToDetectedTimeZone() {
+    const detected = resetClientTimeZone();
+
+    setTimeZone(detected);
+    setManualTimeZone(false);
+    await loadSettings();
+  }
 
   useEffect(() => {
     if (!settings || importDraftInitialized) {
@@ -296,7 +333,8 @@ export function SettingsDashboard() {
   const isNewPlanMode = planSetupMode === "new";
   const showPlanEditor = Boolean(planEditorOpen && planSetupMode);
   const planEditorTitle = hasRealPlan && editingExistingPlan ? "修改当前计划" : isNewPlanMode ? "开始新计划" : "导入已进行计划";
-  const exportTimeZone = encodeURIComponent(getClientTimeZone());
+  const detectedTimeZone = getDetectedTimeZone();
+  const exportTimeZone = encodeURIComponent(timeZone);
 
   return (
     <form className="space-y-4" onSubmit={save}>
@@ -671,6 +709,41 @@ export function SettingsDashboard() {
             <option key={minutes} value={minutes}>{minutes} 分钟</option>
           ))}
         </select>
+      </section>
+
+      <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-ink">时区与今日边界</h2>
+        <p className="mt-2 text-sm leading-6 text-ink/60">
+          Today、趋势、日历和导出会按这里的时区切分“今天”。当前手机检测时区：{detectedTimeZone}。
+        </p>
+        <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="time-zone">
+          当前使用时区
+          <select
+            className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
+            id="time-zone"
+            onChange={(event) => {
+              changeTimeZone(event.target.value).catch((err: Error) => setError(err.message));
+            }}
+            value={timeZone}
+          >
+            {timeZoneOptions.includes(timeZone) ? null : <option value={timeZone}>{timeZone}</option>}
+            {timeZoneOptions.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </label>
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-md bg-mist/60 p-3 text-xs text-ink/60">
+          <span>{manualTimeZone ? "已手动指定时区。" : "正在使用手机浏览器自动检测时区。"}</span>
+          <button
+            className="shrink-0 rounded-full border border-ink/10 px-3 py-1 font-semibold text-ink"
+            onClick={() => {
+              resetToDetectedTimeZone().catch((err: Error) => setError(err.message));
+            }}
+            type="button"
+          >
+            使用自动检测
+          </button>
+        </div>
       </section>
 
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">

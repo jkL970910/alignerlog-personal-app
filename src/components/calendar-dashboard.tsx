@@ -28,6 +28,7 @@ export function CalendarDashboard() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [noteDraft, setNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
 
   const monthKey = format(monthDate, "yyyy-MM");
 
@@ -56,6 +57,7 @@ export function CalendarDashboard() {
 
   useEffect(() => {
     setNoteDraft(selectedDay?.note?.note ?? "");
+    setNoteSaved(false);
   }, [selectedDay?.date, selectedDay?.note?.note]);
 
   async function saveNote() {
@@ -86,6 +88,7 @@ export function CalendarDashboard() {
           ))
         }
       });
+      setNoteSaved(true);
     } catch (error) {
       setState({ status: "error", error: error instanceof Error ? error.message : "无法保存日记。" });
     } finally {
@@ -178,7 +181,10 @@ export function CalendarDashboard() {
           </div>
 
           <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="daily-note">
-            当日札记
+            <span className="flex items-center justify-between gap-2">
+              <span>当日札记</span>
+              {selectedDay.note?.note ? <span className="text-xs font-normal text-sage">已保存札记</span> : null}
+            </span>
             <textarea
               className="mt-2 min-h-28 w-full resize-none rounded-md border border-ink/10 bg-paper px-3 py-2 text-ink outline-none focus:border-mint"
               id="daily-note"
@@ -187,6 +193,9 @@ export function CalendarDashboard() {
               value={noteDraft}
             />
           </label>
+          <p className="mt-2 text-xs leading-5 text-ink/50">
+            保存后会显示在当前日期详情里；日历日期下方的小圆点表示该日有札记。
+          </p>
           <button
             className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
             disabled={savingNote}
@@ -194,7 +203,7 @@ export function CalendarDashboard() {
             type="button"
           >
             {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            保存札记
+            {noteSaved ? "已保存" : "保存札记"}
           </button>
         </section>
       ) : null}
@@ -229,7 +238,7 @@ function getDayStatusClass(day: CalendarDay) {
 
 function getDayStatusLabel(day: CalendarDay) {
   if (day.status === "no_data") {
-    return "暂无佩戴记录";
+    return day.note?.note ? "有札记" : "暂无佩戴记录";
   }
 
   if (day.status === "goal_met") {
