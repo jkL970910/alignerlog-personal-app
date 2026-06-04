@@ -80,6 +80,13 @@ export async function getOrCreateTreatmentPlan(userId: string) {
   return mapTreatmentPlan(created);
 }
 
+export async function getWearState(userId: string) {
+  const db = getDb();
+  const [existing] = await db.select().from(wearStates).where(eq(wearStates.userId, userId)).limit(1);
+
+  return existing ? mapWearState(existing) : null;
+}
+
 export async function getOrCreateWearState(userId: string) {
   const db = getDb();
   const [existing] = await db.select().from(wearStates).where(eq(wearStates.userId, userId)).limit(1);
@@ -182,9 +189,9 @@ export async function upsertDailyNote(userId: string, date: string, note: string
 
 export async function startOffTraySession(userId: string, reason?: OffTrayReason) {
   const db = getDb();
-  const state = await getOrCreateWearState(userId);
+  const state = await getWearState(userId);
 
-  if (!state.isWearing) {
+  if (state && !state.isWearing) {
     const active = await getActiveSession(userId);
 
     return {
@@ -206,15 +213,21 @@ export async function startOffTraySession(userId: string, reason?: OffTrayReason
     updatedAt: now
   }).returning();
 
-  const [updatedState] = await db.update(wearStates)
-    .set({
-      isWearing: false,
-      currentOffSessionId: session.id,
-      lastChangedAt: now,
-      updatedAt: now
-    })
-    .where(eq(wearStates.userId, userId))
-    .returning();
+  const nextState = {
+    isWearing: false,
+    currentOffSessionId: session.id,
+    lastChangedAt: now,
+    updatedAt: now
+  };
+  const [updatedState] = state
+    ? await db.update(wearStates)
+      .set(nextState)
+      .where(eq(wearStates.userId, userId))
+      .returning()
+    : await db.insert(wearStates).values({
+      userId,
+      ...nextState
+    }).returning();
 
   return {
     wearState: mapWearState(updatedState),
@@ -225,12 +238,12 @@ export async function startOffTraySession(userId: string, reason?: OffTrayReason
 
 export async function endActiveOffTraySession(userId: string) {
   const db = getDb();
-  const state = await getOrCreateWearState(userId);
+  const state = await getWearState(userId);
   const active = await getActiveSession(userId);
 
-  if (state.isWearing || !active) {
+  if (!active) {
     return {
-      wearState: state,
+      wearState: state ?? await getOrCreateWearState(userId),
       activeSession: null,
       changed: false
     };
@@ -246,15 +259,21 @@ export async function endActiveOffTraySession(userId: string) {
     .where(eq(offTraySessions.id, active.id))
     .returning();
 
-  const [updatedState] = await db.update(wearStates)
-    .set({
-      isWearing: true,
-      currentOffSessionId: null,
-      lastChangedAt: now,
-      updatedAt: now
-    })
-    .where(eq(wearStates.userId, userId))
-    .returning();
+  const nextState = {
+    isWearing: true,
+    currentOffSessionId: null,
+    lastChangedAt: now,
+    updatedAt: now
+  };
+  const [updatedState] = state
+    ? await db.update(wearStates)
+      .set(nextState)
+      .where(eq(wearStates.userId, userId))
+      .returning()
+    : await db.insert(wearStates).values({
+      userId,
+      ...nextState
+    }).returning();
 
   return {
     wearState: mapWearState(updatedState),

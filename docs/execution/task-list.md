@@ -102,6 +102,8 @@ Tasks:
 - Make Today show `暂无记录` instead of invented `今日已戴` minutes before first real check-in. Completed.
 - Make History averages/charts use only recorded days. Completed.
 - Keep no-data calendar days gray / `暂无佩戴记录`. Completed.
+- Derive visible wearing/out status from active off-tray sessions when present, so deploy/reload cannot mask an active `已取下` session as `佩戴中`. Completed.
+- Avoid creating a persisted default `wear_states.is_wearing=true` row from read-only Today snapshot access. Completed.
 
 Acceptance:
 
@@ -109,6 +111,7 @@ Acceptance:
 - History does not show near-24-hour bars for days without logs.
 - Today metrics begin only after user performs a real tracking action.
 - Calendar no-data status stays visually distinct from success/failure.
+- If an active off-tray session exists, Today shows `已取下` after reload/deploy.
 
 ## P0.4 Loo牙大臣 Floating AI Agent
 

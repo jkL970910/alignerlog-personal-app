@@ -10,7 +10,7 @@ import {
   getActiveTreatmentSeries,
   getOrCreateReminderSettings,
   getOrCreateTreatmentPlan,
-  getOrCreateWearState,
+  getWearState,
   listPlannedTraysForSeries,
   listSessionsForRange
 } from "@/server/repository";
@@ -23,9 +23,26 @@ export async function GET() {
     const now = new Date();
     const date = todayKey(now);
     const treatmentPlan = await getOrCreateTreatmentPlan(userId);
-    const wearState = await getOrCreateWearState(userId);
+    const persistedWearState = await getWearState(userId);
     const reminderSettings = await getOrCreateReminderSettings(userId);
     const activeSession = await getActiveSession(userId);
+    const wearState = activeSession
+      ? {
+        id: persistedWearState?.id ?? "derived-active-session",
+        userId,
+        isWearing: false,
+        currentOffSessionId: activeSession.id,
+        lastChangedAt: activeSession.startAt,
+        updatedAt: activeSession.updatedAt
+      }
+      : persistedWearState ?? {
+        id: "not-started",
+        userId,
+        isWearing: true,
+        currentOffSessionId: null,
+        lastChangedAt: now.toISOString(),
+        updatedAt: now.toISOString()
+      };
     const activeSeries = await getActiveTreatmentSeries(userId);
     const plannedTrays = activeSeries ? await listPlannedTraysForSeries(userId, activeSeries.id) : [];
     const sessions = await listSessionsForRange(userId, toDateKey(subDays(now, 1)), date);
