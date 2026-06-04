@@ -126,6 +126,7 @@ Tasks:
 - Support `timeZone` query parameter for export links. Completed.
 - Compute Today, summaries, calendar session range, CSV export, and plan progress using the requested user time zone instead of server/UTC day boundaries. Completed.
 - Keep imported plan dates as plain user-entered dates; only "today" and session aggregation use the time zone boundary. Completed.
+- Use the same client-local date key for Settings default plan dates and Calendar initially selected date. Completed.
 - Add regression tests for Toronto local day boundary and DST day length. Completed.
 - Deploy and verify public mobile route health. Completed.
 

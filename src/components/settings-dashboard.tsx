@@ -6,7 +6,7 @@ import { Download, Loader2, Save, Sparkles } from "lucide-react";
 
 import type { PlanProgress, ReminderSettings, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
 import { formatMinutes } from "@/lib/format";
-import { getClientTimeZone, timeZoneHeaders } from "@/lib/client-time-zone";
+import { getClientDateKey, getClientTimeZone, timeZoneHeaders } from "@/lib/client-time-zone";
 
 import { SetupWarning } from "./setup-warning";
 
@@ -21,7 +21,7 @@ type ImportState = TreatmentPlanImportInput;
 type PlanSetupMode = "new" | "import";
 
 function createDefaultImport(mode: PlanSetupMode = "import", dailyGoalMinutes = 1320): ImportState {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getClientDateKey();
   const isNewPlan = mode === "new";
 
   return {

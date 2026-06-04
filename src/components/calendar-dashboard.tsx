@@ -5,7 +5,7 @@ import { addMonths, format, isSameMonth, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Loader2, Save } from "lucide-react";
 
 import { formatMinutes, formatPercent } from "@/lib/format";
-import { timeZoneHeaders } from "@/lib/client-time-zone";
+import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
 import type { CalendarDay } from "@/lib/types";
 
 import { SetupWarning } from "./setup-warning";
@@ -24,7 +24,7 @@ type LoadState =
 
 export function CalendarDashboard() {
   const [monthDate, setMonthDate] = useState(() => new Date());
-  const [selectedDate, setSelectedDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [selectedDate, setSelectedDate] = useState(() => getClientDateKey());
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [noteDraft, setNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
