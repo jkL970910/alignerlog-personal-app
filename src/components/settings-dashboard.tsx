@@ -8,6 +8,7 @@ import type { PlanProgress, ReminderSettings, TreatmentPlan, TreatmentPlanImport
 import { formatMinutes } from "@/lib/format";
 import { getClientDateKey, getClientTimeZone, timeZoneHeaders } from "@/lib/client-time-zone";
 
+import { LogoutButton } from "./logout-button";
 import { SetupWarning } from "./setup-warning";
 
 type SettingsPayload = {
@@ -603,6 +604,16 @@ export function SettingsDashboard() {
         {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
         保存设置
       </button>
+
+      <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-ink">账户</h2>
+        <p className="mt-2 text-sm leading-6 text-ink/60">
+          退出登录会清除当前设备的登录状态，不会删除你的牙套计划或佩戴记录。
+        </p>
+        <div className="mt-4">
+          <LogoutButton variant="wide" />
+        </div>
+      </section>
     </form>
   );
 }

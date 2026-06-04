@@ -168,10 +168,11 @@ Status: partially complete / ongoing
 Tasks:
 
 - Add manual QA checklist for plan import, progress, Chinese copy, and AI safety cases.
-- Run local verification: tests, typecheck, build. Completed for deployed P0.0-P0.3.1 slices.
+- Run local verification: tests, typecheck, build. Completed for deployed P0.0-P0.3.2 slices.
 - Ask user whether to run pre-deployment audit. Active rule established.
 - Deploy to Vercel after signoff. Completed for current deployed slices.
 - Run cloud smoke. Public route checks completed; authenticated write smoke should only run when explicitly requested because it creates/updates smoke account data.
+- Move logout out of bottom navigation and into Settings account area to reduce mobile mis-taps. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
@@ -183,11 +184,12 @@ Acceptance:
 
 ## Current Next Priorities
 
-1. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data states, Settings plan create/import/update/reset.
-2. Reminder UX clarification: rename `进食后提醒` to `吃饭摘下后提醒戴回`; decide whether to implement PWA local notification or defer.
-3. Calendar tray boundary markers from imported plan.
-4. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
-5. P1 exception flows: late change, tray extension, poor fit, lost/broken tray, waiting for refinement.
+1. Deploy Settings logout relocation and verify bottom nav no longer contains a logout tap target.
+2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data states, Settings plan create/import/update/reset.
+3. Reminder UX clarification: rename `进食后提醒` to `吃饭摘下后提醒戴回`; decide whether to implement PWA local notification or defer.
+4. Calendar tray boundary markers from imported plan.
+5. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
+6. P1 exception flows: late change, tray extension, poor fit, lost/broken tray, waiting for refinement.
 
 ## P1 Multi-Series And Exceptions
 

@@ -4,8 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, CalendarDays, ChartColumn, Settings, Smile } from "lucide-react";
 
-import { LogoutButton } from "./logout-button";
-
 const items = [
   { href: "/today", label: "今日", icon: Smile },
   { href: "/history", label: "趋势", icon: ChartColumn },
@@ -19,7 +17,7 @@ export function BottomNav() {
 
   return (
     <nav className="safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-paper/90 px-3 pt-2 shadow-[0_-18px_40px_rgba(91,47,55,0.08)] backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-[repeat(5,minmax(0,1fr))_2.5rem] gap-1">
+      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
         {items.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -38,9 +36,6 @@ export function BottomNav() {
             </Link>
           );
         })}
-        <div className="flex items-center justify-center">
-          <LogoutButton />
-        </div>
       </div>
     </nav>
   );
