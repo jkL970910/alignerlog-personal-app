@@ -181,6 +181,7 @@ Tasks:
 - Add Calendar tray boundary markers and selected-day tray start/end details from imported plan. Implemented locally.
 - Add PWA Web Push P0: browser subscription UI, push subscription storage, off-tray reminder jobs, service-worker notification handling, and protected reminder worker endpoint. Implemented locally and ready for deploy.
 - Add external five-minute reminder scheduler. Implemented locally with Cloudflare Worker Cron because Vercel Hobby cron cannot run every five minutes.
+- Simplify Reminders page into an action-first layout: current device push, current reminder rule, and collapsed work-principle explanation. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:

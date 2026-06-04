@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
-import { Bell, Moon, Server, Timer } from "lucide-react";
+import { Bell, Cloud, Timer } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { PushNotificationCard } from "@/components/push-notification-card";
+import { ReminderRulesCard } from "@/components/reminder-rules-card";
 
 export default function RemindersPage() {
   return (
@@ -10,31 +10,46 @@ export default function RemindersPage() {
       <PageHeader
         eyebrow="提醒阁"
         title="提醒"
-        subtitle="当前先保存提醒偏好；正式推送会在后续云端 worker 中接入。"
+        subtitle="先开启当前设备推送，再按你的提醒偏好接收戴回牙套提醒。"
       />
       <div className="space-y-3">
-        <ReminderCard icon={<Timer className="h-5 w-5" />} title="摘下后提醒戴回" body="系统不会自动判断你是否在进食；只有你点击“我取下牙套了”后，才会按设置的分钟数提醒戴回。" />
         <PushNotificationCard />
-        <ReminderCard icon={<Moon className="h-5 w-5" />} title="睡前提醒" body="保留晚间提醒时间，避免睡前忘记佩戴。" />
-        <ReminderCard icon={<Bell className="h-5 w-5" />} title="推送授权" body="只有你主动开启时，才请求浏览器通知权限；关闭后不会继续向当前设备发送通知。" />
-        <ReminderCard icon={<Server className="h-5 w-5" />} title="云端队列" body="摘下牙套时会生成提醒任务；需要云端定时调用 worker 才会真正发送。" />
+        <ReminderRulesCard />
+        <details className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
+          <summary className="cursor-pointer font-semibold text-ink">工作原理</summary>
+          <div className="mt-4 space-y-3 text-sm leading-6 text-ink/65">
+            <HowItWorksRow
+              icon={<Timer className="h-4 w-4" />}
+              title="从手动摘下开始计时"
+              body="系统不会自动判断你是否在吃饭；只有你在今日页点击“我取下牙套了”，才会开始计算戴回提醒。"
+            />
+            <HowItWorksRow
+              icon={<Bell className="h-4 w-4" />}
+              title="到期才发送通知"
+              body="后台每几分钟检查一次是否有到期提醒。没有到期任务时不会发通知，也不会重复通知。"
+            />
+            <HowItWorksRow
+              icon={<Cloud className="h-4 w-4" />}
+              title="戴回后自动取消"
+              body="如果你已经点击“我戴回牙套了”，这次摘下对应的提醒会取消。"
+            />
+          </div>
+        </details>
       </div>
     </>
   );
 }
 
-function ReminderCard(props: { icon: ReactNode; title: string; body: string }) {
+function HowItWorksRow(props: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
-      <div className="flex gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-mist text-sage">
-          {props.icon}
-        </div>
-        <div>
-          <h2 className="font-semibold text-ink">{props.title}</h2>
-          <p className="mt-1 text-sm leading-6 text-ink/60">{props.body}</p>
-        </div>
+    <div className="flex gap-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-mist text-sage">
+        {props.icon}
       </div>
-    </section>
+      <div>
+        <p className="font-medium text-ink">{props.title}</p>
+        <p className="mt-0.5">{props.body}</p>
+      </div>
+    </div>
   );
 }

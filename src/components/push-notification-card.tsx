@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Loader2 } from "lucide-react";
+import { BellRing, Loader2 } from "lucide-react";
 
 type PushState =
   | { status: "loading"; message?: string }
@@ -88,12 +88,17 @@ export function PushNotificationCard() {
   return (
     <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
       <div className="flex gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-mist text-sage">
-          <Bell className="h-5 w-5" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-mist text-sage">
+          <BellRing className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="font-semibold text-ink">浏览器推送</h2>
-          <p className="mt-1 text-sm leading-6 text-ink/60">{body}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-ink">当前设备推送</h2>
+              <p className="mt-1 text-sm leading-6 text-ink/60">{body}</p>
+            </div>
+            {state.status === "ready" ? <StatusPill subscribed={state.subscribed} permission={state.permission} /> : null}
+          </div>
           {state.status === "ready" && state.message ? <p className="mt-2 text-xs text-sage">{state.message}</p> : null}
           {state.status === "error" ? <p className="mt-2 text-xs text-coral">{state.message}</p> : null}
           {state.status === "ready" ? (
@@ -104,13 +109,25 @@ export function PushNotificationCard() {
               type="button"
             >
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {state.subscribed ? "关闭当前设备推送" : "开启当前设备推送"}
+              {state.subscribed ? "关闭这台设备的推送" : "开启这台设备的推送"}
             </button>
           ) : null}
         </div>
       </div>
     </section>
   );
+}
+
+function StatusPill(props: { subscribed: boolean; permission: NotificationPermission }) {
+  if (props.permission === "denied") {
+    return <span className="shrink-0 rounded-full bg-coral/10 px-2.5 py-1 text-xs font-semibold text-coral">已拒绝</span>;
+  }
+
+  if (props.subscribed) {
+    return <span className="shrink-0 rounded-full bg-sage/10 px-2.5 py-1 text-xs font-semibold text-sage">已开启</span>;
+  }
+
+  return <span className="shrink-0 rounded-full bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink/55">未开启</span>;
 }
 
 async function loadPushState(): Promise<PushState> {
@@ -146,10 +163,10 @@ function getBody(state: PushState) {
   }
 
   if (state.subscribed) {
-    return "当前设备已订阅推送；摘下牙套超过设定时间后，云端 worker 可发送戴回提醒。";
+    return "这台设备已能接收 Loo牙提醒。摘下牙套超过设定时间后，系统会发送戴回提醒。";
   }
 
-  return "开启后，摘下牙套超过设定时间时，当前设备可以收到戴回提醒。";
+  return "开启后，这台手机可以收到戴回牙套提醒。每台设备都需要单独开启一次。";
 }
 
 function urlBase64ToUint8Array(base64String: string) {
