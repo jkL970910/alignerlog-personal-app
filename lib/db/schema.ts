@@ -15,6 +15,36 @@ export const reminderStatusEnum = pgEnum("reminder_status", [
   "cancelled"
 ]);
 
+export const treatmentStatusEnum = pgEnum("treatment_status", [
+  "not_started",
+  "active",
+  "holding",
+  "waiting_refinement",
+  "retainer"
+]);
+
+export const treatmentSeriesTypeEnum = pgEnum("treatment_series_type", [
+  "active",
+  "refinement",
+  "holding",
+  "retainer"
+]);
+
+export const plannedTrayStatusEnum = pgEnum("planned_tray_status", [
+  "completed",
+  "current",
+  "upcoming",
+  "extended",
+  "paused",
+  "skipped_by_clinician"
+]);
+
+export const plannedTraySourceEnum = pgEnum("planned_tray_source", [
+  "imported",
+  "generated",
+  "adjusted"
+]);
+
 export const users = pgTable(
   "users",
   {
@@ -112,5 +142,53 @@ export const reminderSettings = pgTable(
   },
   (table) => ({
     userIdIdx: uniqueIndex("reminder_settings_user_id_idx").on(table.userId)
+  })
+);
+
+export const treatmentSeries = pgTable(
+  "treatment_series",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    name: varchar("name", { length: 80 }).notNull().default("第一阶段"),
+    status: treatmentStatusEnum("status").notNull().default("active"),
+    seriesType: treatmentSeriesTypeEnum("series_type").notNull().default("active"),
+    startDate: varchar("start_date", { length: 10 }).notNull(),
+    currentTrayNumber: integer("current_tray_number").notNull(),
+    totalTrays: integer("total_trays"),
+    trayIntervalDays: integer("tray_interval_days").notNull().default(7),
+    dailyGoalMinutes: integer("daily_goal_minutes").notNull().default(1320),
+    currentTrayStartDate: varchar("current_tray_start_date", { length: 10 }).notNull(),
+    nextChangeDate: varchar("next_change_date", { length: 10 }),
+    appointmentDate: varchar("appointment_date", { length: 10 }),
+    clinicianNotes: text("clinician_notes").notNull().default(""),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userActiveIdx: index("treatment_series_user_active_idx").on(table.userId, table.isActive),
+    userCreatedIdx: index("treatment_series_user_created_idx").on(table.userId, table.createdAt)
+  })
+);
+
+export const plannedTrays = pgTable(
+  "planned_trays",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    seriesId: uuid("series_id").notNull(),
+    trayNumber: integer("tray_number").notNull(),
+    plannedStartDate: varchar("planned_start_date", { length: 10 }).notNull(),
+    plannedEndDate: varchar("planned_end_date", { length: 10 }).notNull(),
+    status: plannedTrayStatusEnum("status").notNull().default("upcoming"),
+    source: plannedTraySourceEnum("source").notNull().default("generated"),
+    note: text("note").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userSeriesTrayIdx: uniqueIndex("planned_trays_user_series_tray_idx").on(table.userId, table.seriesId, table.trayNumber),
+    userDateIdx: index("planned_trays_user_date_idx").on(table.userId, table.plannedStartDate, table.plannedEndDate)
   })
 );

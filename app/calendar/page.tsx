@@ -5,9 +5,9 @@ export default function CalendarPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Month view"
-        title="Calendar"
-        subtitle="Review daily goal status and keep short notes for tray fit, meals, and soreness."
+        eyebrow="月度玉历"
+        title="佩戴日历"
+        subtitle="按天查看达标状态，并记录牙套贴合、进食、酸痛等简短笔记。"
       />
       <CalendarDashboard />
     </>

@@ -32,6 +32,7 @@ await expectStatus("/login", undefined, 200);
 await expectStatus("/register", undefined, 200);
 await expectStatus("/today", { redirect: "manual" }, 307);
 await expectStatus("/api/snapshot", undefined, 401);
+await expectStatus("/api/treatment-plan/import", { method: "POST" }, 401);
 await expectStatus("/manifest.webmanifest", undefined, 200);
 await expectStatus("/sw.js", undefined, 200);
 await expectStatus(
@@ -83,8 +84,25 @@ if (password) {
       }
     })
   });
+  await expectOk("/api/treatment-plan/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", cookie },
+    body: JSON.stringify({
+      mode: "preview",
+      plan: {
+        status: "active",
+        seriesType: "active",
+        name: "Smoke Preview",
+        currentTrayNumber: 1,
+        totalTrays: 3,
+        trayIntervalDays: 7,
+        dailyGoalMinutes: 1320,
+        currentTrayStartDate: today
+      }
+    })
+  });
   await expectOk("/api/export/json", { headers: { cookie } });
   await expectOk("/api/export/csv", { headers: { cookie } });
 }
 
-console.log("AlignerLog cloud smoke passed.");
+console.log("Loo牙管理器 cloud smoke passed.");

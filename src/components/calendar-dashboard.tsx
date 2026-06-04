@@ -37,7 +37,7 @@ export function CalendarDashboard() {
         const payload = await response.json();
 
         if (!response.ok) {
-          throw new Error(payload.error ?? "Could not load calendar.");
+          throw new Error(payload.error ?? "无法载入佩戴日历。");
         }
 
         setState({ status: "ready", data: payload });
@@ -73,7 +73,7 @@ export function CalendarDashboard() {
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload.error ?? "Could not save note.");
+        throw new Error(payload.error ?? "无法保存日记。");
       }
 
       setState({
@@ -86,7 +86,7 @@ export function CalendarDashboard() {
         }
       });
     } catch (error) {
-      setState({ status: "error", error: error instanceof Error ? error.message : "Could not save note." });
+      setState({ status: "error", error: error instanceof Error ? error.message : "无法保存日记。" });
     } finally {
       setSavingNote(false);
     }
@@ -101,16 +101,16 @@ export function CalendarDashboard() {
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">
           <button
-            aria-label="Previous month"
+            aria-label="上个月"
             className="flex h-10 w-10 items-center justify-center rounded-md border border-ink/10 text-ink"
             onClick={() => setMonthDate((value) => addMonths(value, -1))}
             type="button"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <h2 className="text-lg font-semibold text-ink">{format(monthDate, "MMMM yyyy")}</h2>
+          <h2 className="text-lg font-semibold text-ink">{format(monthDate, "yyyy年M月")}</h2>
           <button
-            aria-label="Next month"
+            aria-label="下个月"
             className="flex h-10 w-10 items-center justify-center rounded-md border border-ink/10 text-ink"
             onClick={() => setMonthDate((value) => addMonths(value, 1))}
             type="button"
@@ -120,7 +120,7 @@ export function CalendarDashboard() {
         </div>
 
         <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-ink/50">
-          {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+          {["日", "一", "二", "三", "四", "五", "六"].map((day, index) => (
             <div className="py-2" key={`${day}-${index}`}>{day}</div>
           ))}
         </div>
@@ -168,19 +168,19 @@ export function CalendarDashboard() {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <Detail label="Worn" value={formatMinutes(selectedDay.summary.wearMinutes)} />
-            <Detail label="Off tray" value={formatMinutes(selectedDay.summary.offMinutes)} />
-            <Detail label="Goal" value={formatMinutes(selectedDay.summary.goalMinutes)} />
-            <Detail label="Sessions" value={String(selectedDay.summary.sessionCount)} />
+            <Detail label="已佩戴" value={formatMinutes(selectedDay.summary.wearMinutes)} />
+            <Detail label="取下" value={formatMinutes(selectedDay.summary.offMinutes)} />
+            <Detail label="目标" value={formatMinutes(selectedDay.summary.goalMinutes)} />
+            <Detail label="次数" value={String(selectedDay.summary.sessionCount)} />
           </div>
 
           <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="daily-note">
-            Daily note
+            当日札记
             <textarea
               className="mt-2 min-h-28 w-full resize-none rounded-md border border-ink/10 bg-paper px-3 py-2 text-ink outline-none focus:border-mint"
               id="daily-note"
               onChange={(event) => setNoteDraft(event.target.value)}
-              placeholder="Meal timing, tray fit, soreness, or anything worth remembering."
+              placeholder="记录进食节奏、牙套贴合、酸痛感，或任何值得回看的细节。"
               value={noteDraft}
             />
           </label>
@@ -191,7 +191,7 @@ export function CalendarDashboard() {
             type="button"
           >
             {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save note
+            保存札记
           </button>
         </section>
       ) : null}
@@ -226,16 +226,16 @@ function getDayStatusClass(day: CalendarDay) {
 
 function getDayStatusLabel(day: CalendarDay) {
   if (day.status === "no_data") {
-    return "No wear data";
+    return "暂无佩戴记录";
   }
 
   if (day.status === "goal_met") {
-    return "Goal met";
+    return "已达标";
   }
 
   if (day.status === "close") {
-    return "Close to goal";
+    return "接近达标";
   }
 
-  return "Below goal";
+  return "低于目标";
 }

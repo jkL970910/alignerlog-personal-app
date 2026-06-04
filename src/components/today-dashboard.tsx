@@ -23,7 +23,7 @@ export function TodayDashboard() {
     const payload = await response.json();
 
     if (!response.ok) {
-      throw new Error(payload.error ?? "Could not load today.");
+      throw new Error(payload.error ?? "无法载入今日佩戴数据。");
     }
 
     setState({ status: "ready", data: payload });
@@ -55,7 +55,7 @@ export function TodayDashboard() {
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload.error ?? "Could not update status.");
+        throw new Error(payload.error ?? "无法更新佩戴状态。");
       }
 
       setState({
@@ -68,7 +68,7 @@ export function TodayDashboard() {
         }
       });
     } catch (error) {
-      setState({ status: "error", error: error instanceof Error ? error.message : "Could not update status." });
+      setState({ status: "error", error: error instanceof Error ? error.message : "无法更新佩戴状态。" });
     } finally {
       setPending(false);
     }
@@ -87,6 +87,7 @@ export function TodayDashboard() {
   }
 
   const { wearState, activeSession, todaySummary, treatmentPlan } = state.data;
+  const planProgress = state.data.planProgress;
   const isWearing = wearState.isWearing;
   const progress = Math.min(100, (todaySummary.wearMinutes / treatmentPlan.dailyGoalMinutes) * 100);
   const activeOutMinutes = activeSession
@@ -95,13 +96,31 @@ export function TodayDashboard() {
 
   return (
     <div className="space-y-4">
+      {planProgress ? (
+        <section className="rounded-md border border-amber/20 bg-white/90 p-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-[0.18em] text-sage">当前计划</p>
+          <div className="mt-2 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-semibold text-ink">
+                第 {planProgress.currentTrayNumber} / {planProgress.totalTrays ?? "?"} 副
+              </h2>
+              <p className="mt-1 text-sm text-ink/60">{getProgressText(planProgress)}</p>
+            </div>
+            <div className="rounded-md bg-mist px-3 py-2 text-right">
+              <p className="text-xs text-ink/50">下次换期</p>
+              <p className="font-semibold text-ink">{planProgress.nextChangeDate ?? "待确认"}</p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <section className={`rounded-md border p-5 shadow-soft ${
         isWearing ? "border-mint/25 bg-white" : "border-coral/25 bg-coral/10"
       }`}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-ink/60">Current status</p>
-            <h2 className="mt-1 text-4xl font-semibold text-ink">{isWearing ? "Wearing" : "Out"}</h2>
+            <p className="text-sm font-medium text-ink/60">当前状态</p>
+            <h2 className="mt-1 text-4xl font-semibold text-ink">{isWearing ? "佩戴中" : "已取下"}</h2>
           </div>
           <div className={`rounded-md p-3 ${isWearing ? "bg-mint/10 text-mint" : "bg-coral/10 text-coral"}`}>
             {isWearing ? <ShieldCheck className="h-7 w-7" /> : <Utensils className="h-7 w-7" />}
@@ -110,7 +129,7 @@ export function TodayDashboard() {
 
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="text-ink/60">Daily goal progress</span>
+            <span className="text-ink/60">今日目标进度</span>
             <span className="font-semibold text-ink">{formatPercent(progress)}</span>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-mist">
@@ -127,20 +146,48 @@ export function TodayDashboard() {
           type="button"
         >
           {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Clock className="h-5 w-5" />}
-          {isWearing ? "I took my aligners out" : "I put my aligners back in"}
+          {isWearing ? "我取下牙套了" : "我戴回牙套了"}
         </button>
       </section>
 
       <div className="grid grid-cols-2 gap-3">
-        <MetricCard label="Worn today" value={formatMinutes(todaySummary.wearMinutes)} helper={`Goal ${formatMinutes(treatmentPlan.dailyGoalMinutes)}`} />
-        <MetricCard label={isWearing ? "Remaining" : "Out for"} value={isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes)} />
-        <MetricCard label="Sessions" value={String(todaySummary.sessionCount)} helper="Off-tray today" />
-        <MetricCard label="Longest out" value={formatMinutes(todaySummary.longestOffSessionMinutes)} />
+        <MetricCard label="今日已戴" value={formatMinutes(todaySummary.wearMinutes)} helper={`目标 ${formatMinutes(treatmentPlan.dailyGoalMinutes)}`} />
+        <MetricCard label={isWearing ? "还差" : "已取下"} value={isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes)} />
+        <MetricCard label="取下次数" value={String(todaySummary.sessionCount)} helper="今日记录" />
+        <MetricCard label="最长取下" value={formatMinutes(todaySummary.longestOffSessionMinutes)} />
       </div>
 
       <p className="rounded-md border border-ink/10 bg-mist/70 p-3 text-xs leading-5 text-ink/60">
-        Follow your orthodontist&apos;s instructions for wear time and tray changes.
+        Loo牙管理器用于记录和理解佩戴计划，不提供诊断或换牙套决策；请以牙医/正畸医生指导为准。
       </p>
     </div>
   );
+}
+
+function getProgressText(progress: NonNullable<AppSnapshot["planProgress"]>) {
+  if (progress.label === "holding") {
+    return "当前处于保持/被动佩戴，请按医生安排等待下一步。";
+  }
+
+  if (progress.label === "paused") {
+    return "当前计划暂停或等待精修，换期时间以医生确认 为准。";
+  }
+
+  if (progress.label === "retainer") {
+    return "当前为保持器阶段，佩戴方式以医生指导为准。";
+  }
+
+  if (progress.label === "not_started") {
+    return "计划尚未开始，可先保留日程预览。";
+  }
+
+  const dayText = progress.currentTrayDay ? `当前第 ${progress.currentTrayDay} 天` : "当前天数待确认";
+  const nextText = progress.daysUntilNextChange === null
+    ? "下次换期待确认"
+    : progress.daysUntilNextChange <= 0
+      ? "已到计划换期日"
+      : `距离计划换期 ${progress.daysUntilNextChange} 天`;
+  const remainingText = progress.traysRemaining === null ? "" : `，剩余 ${progress.traysRemaining} 副`;
+
+  return `${dayText}，${nextText}${remainingText}。`;
 }

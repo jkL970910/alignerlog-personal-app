@@ -1,4 +1,37 @@
-# AlignerLog Personal App — Product Requirement & Design Document
+# Loo牙管理器 — Product Requirement & Design Document
+
+## Current Product Decision Layer
+
+The original `AlignerLog` PRD below is preserved as a historical baseline. The
+active product direction is now **Loo牙管理器**, a Chinese-first, mobile PWA for
+personal clear-aligner / Invisalign-style treatment administration.
+
+Current decisions override older sections when they conflict:
+
+* Product name: **Loo牙管理器**.
+* Product language: Chinese-first user experience. English may remain in
+  developer docs, code identifiers, and technical comments.
+* Visual direction: inherit the Loo国宝库 family style: warm, treasury-like,
+  personal, calm, and slightly ceremonial rather than generic clinical SaaS.
+* Deployment: Vercel + separate Neon Postgres database under the user's
+  personal cloud account.
+* Auth: protected personal account with registration/login.
+* Mobile access: use the deployed PWA URL on iPhone Safari / Home Screen.
+* Treatment model: track the user's current known aligner series and progress;
+  do not assume the entire dental course is permanently known up front.
+* Import: support guided import for users who already started treatment.
+* AI: add a floating AI Agent similar to Loo国大臣, with a dental clear-aligner
+  expert persona. It answers questions using the user's plan and wear logs, but
+  must not diagnose or recommend clinical tray changes.
+* AI provider: server-side OpenRouter-compatible Responses routing, fixed model
+  `gpt-5.5`, fixed reasoning effort `medium`; API key is stored only in local /
+  deployment env and is not user-configurable in the product UI.
+* Safety: all plan, AI, and exception flows must tell users to follow their
+  dentist / orthodontist instructions for pain, poor fit, broken trays, skipped
+  trays, or uncertainty.
+
+See `docs/product/current-product-spec.md` and `docs/execution/task-list.md`
+for the active implementation spec and backlog.
 
 ## 1. Project Overview
 

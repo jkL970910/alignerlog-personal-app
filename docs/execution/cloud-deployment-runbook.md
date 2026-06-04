@@ -1,4 +1,4 @@
-# AlignerLog Cloud Deployment Runbook
+# Loo牙管理器 Cloud Deployment Runbook
 
 ## Target
 
@@ -15,6 +15,8 @@ DATABASE_URL=postgresql://...
 ALIGNERLOG_USER_ID=00000000-0000-0000-0000-000000000001
 ALIGNERLOG_AUTH_SECRET=<32+ character random secret>
 ALIGNERLOG_LOGIN_PASSWORD=<personal login password>
+LOO_DENTAL_OPENROUTER_API_KEY=<server-side OpenRouter key, optional until AI ships>
+LOO_DENTAL_OPENROUTER_BASE_URL=https://openrouter.icu/v1/responses
 REPOSITORY_MODE=postgres-drizzle
 ```
 
@@ -71,3 +73,10 @@ Expected:
 - `/manifest.webmanifest` and `/sw.js` return `200`.
 - wrong login returns `401`.
 - correct login opens the protected API, settings, and export flows.
+
+## AI Provider Notes
+
+The product UI should not expose model or API-key settings. When Loo牙大臣 ships,
+the server uses OpenRouter-compatible routing with fixed model `gpt-5.5` and
+fixed reasoning effort `medium`. Store the API key only in local env and Vercel
+environment variables.

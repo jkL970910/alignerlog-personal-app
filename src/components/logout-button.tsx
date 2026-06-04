@@ -10,7 +10,7 @@ export function LogoutButton() {
 
   return (
     <button
-      aria-label="Sign out"
+      aria-label="退出登录"
       className="flex h-10 w-10 items-center justify-center rounded-md border border-ink/10 bg-white text-ink/60"
       onClick={logout}
       type="button"

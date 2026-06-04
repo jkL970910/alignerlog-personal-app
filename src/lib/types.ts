@@ -81,6 +81,7 @@ export type AppSnapshot = {
   reminderSettings: ReminderSettings;
   activeSession: OffTraySession | null;
   todaySummary: DailySummary;
+  planProgress?: PlanProgress | null;
 };
 
 export type CalendarDay = {
@@ -89,4 +90,83 @@ export type CalendarDay = {
   note: DailyNote | null;
   hasData: boolean;
   status: "no_data" | "goal_met" | "close" | "below_goal";
+};
+
+export type TreatmentStatus = "not_started" | "active" | "holding" | "waiting_refinement" | "retainer";
+
+export type TreatmentSeriesType = "active" | "refinement" | "holding" | "retainer";
+
+export type PlannedTrayStatus = "completed" | "current" | "upcoming" | "extended" | "paused" | "skipped_by_clinician";
+
+export type PlannedTraySource = "imported" | "generated" | "adjusted";
+
+export type TreatmentSeries = {
+  id: string;
+  userId: string;
+  name: string;
+  status: TreatmentStatus;
+  seriesType: TreatmentSeriesType;
+  startDate: string;
+  currentTrayNumber: number;
+  totalTrays: number | null;
+  trayIntervalDays: number;
+  dailyGoalMinutes: number;
+  currentTrayStartDate: string;
+  nextChangeDate: string | null;
+  appointmentDate: string | null;
+  clinicianNotes: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PlannedTray = {
+  id: string;
+  userId: string;
+  seriesId: string;
+  trayNumber: number;
+  plannedStartDate: string;
+  plannedEndDate: string;
+  status: PlannedTrayStatus;
+  source: PlannedTraySource;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PlannedTrayDraft = Omit<PlannedTray, "id" | "userId" | "seriesId" | "createdAt" | "updatedAt">;
+
+export type TreatmentPlanImportInput = {
+  status: TreatmentStatus;
+  seriesType: TreatmentSeriesType;
+  name: string;
+  startDate?: string;
+  currentTrayNumber: number;
+  totalTrays: number;
+  trayIntervalDays: number;
+  dailyGoalMinutes: number;
+  currentTrayStartDate?: string;
+  nextChangeDate?: string;
+  appointmentDate?: string;
+  clinicianNotes?: string;
+};
+
+export type TreatmentPlanImportPreview = {
+  series: Omit<TreatmentSeries, "id" | "userId" | "createdAt" | "updatedAt">;
+  trays: PlannedTrayDraft[];
+  progress: PlanProgress;
+  safetyNote: string;
+};
+
+export type PlanProgress = {
+  status: TreatmentStatus;
+  currentTrayNumber: number;
+  totalTrays: number | null;
+  currentTrayDay: number | null;
+  trayIntervalDays: number;
+  daysUntilNextChange: number | null;
+  traysRemaining: number | null;
+  nextChangeDate: string | null;
+  estimatedSeriesEndDate: string | null;
+  label: "on_track" | "not_started" | "paused" | "holding" | "retainer";
 };

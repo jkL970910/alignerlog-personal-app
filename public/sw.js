@@ -31,7 +31,7 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const data = event.data?.json?.() ?? {
-    title: "AlignerLog",
+    title: "Loo牙管理器",
     body: "Remember to put your aligners back in."
   };
 

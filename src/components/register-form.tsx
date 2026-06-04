@@ -30,12 +30,12 @@ export function RegisterForm({
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload.error ?? "Could not create account.");
+        throw new Error(payload.error ?? "无法创建账户。");
       }
 
       window.location.assign(nextPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create account.");
+      setError(err instanceof Error ? err.message : "无法创建账户。");
     } finally {
       setPending(false);
     }
@@ -47,13 +47,13 @@ export function RegisterForm({
         <div className="flex h-12 w-12 items-center justify-center rounded-md bg-mist text-sage">
           <UserPlus className="h-6 w-6" />
         </div>
-        <h1 className="mt-5 text-3xl font-semibold text-ink">Create account</h1>
+        <h1 className="mt-5 text-3xl font-semibold text-ink">注册 Loo牙</h1>
         <p className="mt-2 text-sm leading-6 text-ink/60">
-          Start a private AlignerLog profile for your wear-time data.
+          创建私人牙套记录空间，后续可导入你的既有佩戴计划。
         </p>
 
         <label className="mt-6 block text-sm font-medium text-ink/70" htmlFor="email">
-          Email
+          邮箱
           <input
             autoComplete="email"
             className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
@@ -65,7 +65,7 @@ export function RegisterForm({
         </label>
 
         <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="password">
-          Password
+          密码
           <input
             autoComplete="new-password"
             className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
@@ -86,13 +86,13 @@ export function RegisterForm({
           type="submit"
         >
           {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserPlus className="h-5 w-5" />}
-          Create account
+          创建账户
         </button>
 
         <p className="mt-4 text-center text-sm text-ink/60">
-          Already have an account?{" "}
+          已有账户？{" "}
           <Link className="font-semibold text-ink" href={`/login?next=${encodeURIComponent(nextPath)}`}>
-            Sign in
+            登录
           </Link>
         </p>
       </form>

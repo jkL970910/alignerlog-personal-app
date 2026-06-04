@@ -1,11 +1,11 @@
 {
-  "name": "AlignerLog",
-  "short_name": "AlignerLog",
-  "description": "Personal clear aligner wear-time tracker.",
+  "name": "Loo牙管理器",
+  "short_name": "Loo牙",
+  "description": "中文隐形牙套佩戴计划与打卡管理器。",
   "start_url": "/today",
   "display": "standalone",
-  "background_color": "#fbfaf7",
-  "theme_color": "#fbfaf7",
+  "background_color": "#fff7f4",
+  "theme_color": "#fff7f4",
   "icons": [
     {
       "src": "/icon.svg",

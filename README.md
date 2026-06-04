@@ -1,6 +1,7 @@
-# AlignerLog Personal App
+# Loo牙管理器
 
-Cloud-first personal clear aligner wear-time tracker for iPhone-friendly PWA usage.
+Cloud-first Chinese personal clear-aligner / Invisalign-style tracking PWA for
+iPhone-friendly mobile URL usage.
 
 ## Stack
 
@@ -15,7 +16,7 @@ Cloud-first personal clear aligner wear-time tracker for iPhone-friendly PWA usa
 The backend is intentionally cloud-first. Local IndexedDB is not the source of truth in this implementation.
 The database layout follows the Portfolio Manager pattern: `lib/db/schema.ts`, `lib/db/client.ts`, Drizzle Kit, and `db:push`.
 The app is intended to be opened as a mobile PWA URL and is protected by a
-single personal password session.
+personal account session.
 
 ## Getting Started
 
@@ -28,6 +29,8 @@ DATABASE_URL="postgresql://user:password@host/db?sslmode=require"
 ALIGNERLOG_USER_ID="00000000-0000-0000-0000-000000000001"
 ALIGNERLOG_AUTH_SECRET="replace-with-at-least-32-random-characters"
 ALIGNERLOG_LOGIN_PASSWORD="replace-with-a-personal-password"
+LOO_DENTAL_OPENROUTER_API_KEY="optional-server-side-ai-key"
+LOO_DENTAL_OPENROUTER_BASE_URL="https://openrouter.icu/v1/responses"
 REPOSITORY_MODE="postgres-drizzle"
 ```
 
@@ -51,7 +54,7 @@ npm run dev
 
 ## Current Scope
 
-- Password-protected personal login with a signed HttpOnly cookie
+- Registration/login with a signed HttpOnly cookie
 - Today status and toggle flow
 - Cloud schema for treatment plan, wear state, sessions, notes, and reminders
 - Daily summary calculation with cross-midnight session splitting
@@ -60,11 +63,26 @@ npm run dev
 - JSON and CSV export
 - PWA shell
 
-## Next Backend Step
+## Active Product Direction
 
-Add a cloud worker reminder queue:
+- Chinese-first product name: `Loo牙管理器`
+- Guided import for existing clear-aligner plans
+- Current tray / current-series progress tracking
+- Generated planned schedule rows without fake wear history
+- Floating `Loo牙大臣` AI assistant over plan and wear logs
+- Server-side OpenRouter-compatible AI routing with fixed `gpt-5.5` and `medium`
+  reasoning effort
 
-1. Store push subscriptions anonymously.
+See:
+
+- `docs/product/current-product-spec.md`
+- `docs/execution/task-list.md`
+
+## Later Backend Step
+
+Add a cloud worker reminder queue when reminder delivery becomes active:
+
+1. Store push subscriptions.
 2. Create reminder records when an off-tray session starts.
 3. Cancel scheduled reminders when the active session ends.
 4. Run a cron sender every few minutes.

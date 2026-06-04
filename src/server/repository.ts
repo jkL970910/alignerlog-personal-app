@@ -1,11 +1,11 @@
 import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
-import { dailyNotes, offTraySessions, reminderSettings, treatmentPlans, users, wearStates } from "@/lib/db/schema";
+import { dailyNotes, offTraySessions, plannedTrays, reminderSettings, treatmentPlans, treatmentSeries, users, wearStates } from "@/lib/db/schema";
 import { dayBounds, todayKey } from "@/lib/dates";
-import type { OffTrayReason, ReminderSettings, TreatmentPlan } from "@/lib/types";
+import type { OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentPlan, TreatmentPlanImportPreview } from "@/lib/types";
 
-import { mapDailyNote, mapOffTraySession, mapReminderSettings, mapTreatmentPlan, mapUser, mapWearState } from "./mappers";
+import { mapDailyNote, mapOffTraySession, mapPlannedTray, mapReminderSettings, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearState } from "./mappers";
 
 const defaultGoalMinutes = 22 * 60;
 
@@ -287,6 +287,68 @@ export async function updateReminderSettings(userId: string, patch: Partial<Omit
     .returning();
 
   return mapReminderSettings(updated);
+}
+
+export async function getActiveTreatmentSeries(userId: string) {
+  const db = getDb();
+  const [series] = await db.select().from(treatmentSeries)
+    .where(and(eq(treatmentSeries.userId, userId), eq(treatmentSeries.isActive, true)))
+    .orderBy(desc(treatmentSeries.createdAt))
+    .limit(1);
+
+  return series ? mapTreatmentSeries(series) : null;
+}
+
+export async function listPlannedTraysForSeries(userId: string, seriesId: string) {
+  const db = getDb();
+  const rows = await db.select().from(plannedTrays)
+    .where(and(eq(plannedTrays.userId, userId), eq(plannedTrays.seriesId, seriesId)))
+    .orderBy(asc(plannedTrays.trayNumber));
+
+  return rows.map(mapPlannedTray);
+}
+
+export async function saveTreatmentPlanImport(userId: string, preview: TreatmentPlanImportPreview) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.update(treatmentSeries)
+    .set({ isActive: false, updatedAt: now })
+    .where(and(eq(treatmentSeries.userId, userId), eq(treatmentSeries.isActive, true)));
+
+  const [series] = await db.insert(treatmentSeries).values({
+    userId,
+    ...preview.series,
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+
+  const plannedValues = preview.trays.map((tray: PlannedTrayDraft) => ({
+    userId,
+    seriesId: series.id,
+    ...tray,
+    createdAt: now,
+    updatedAt: now
+  }));
+
+  const insertedTrays = plannedValues.length
+    ? await db.insert(plannedTrays).values(plannedValues).returning()
+    : [];
+
+  await updateTreatmentPlan(userId, {
+    startDate: preview.series.startDate,
+    currentTrayNumber: preview.series.currentTrayNumber,
+    totalTrays: preview.series.totalTrays,
+    daysPerTray: preview.series.trayIntervalDays,
+    dailyGoalMinutes: preview.series.dailyGoalMinutes
+  });
+
+  return {
+    series: mapTreatmentSeries(series),
+    trays: insertedTrays.map(mapPlannedTray),
+    progress: preview.progress,
+    safetyNote: preview.safetyNote
+  };
 }
 
 export async function listAllSessions(userId: string) {

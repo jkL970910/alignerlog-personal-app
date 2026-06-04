@@ -4,10 +4,14 @@ export function formatMinutes(totalMinutes: number) {
   const minutes = safeMinutes % 60;
 
   if (hours <= 0) {
-    return `${minutes}m`;
+    return `${minutes}分钟`;
   }
 
-  return `${hours}h ${minutes}m`;
+  if (minutes === 0) {
+    return `${hours}小时`;
+  }
+
+  return `${hours}小时${minutes}分钟`;
 }
 
 export function formatPercent(value: number) {

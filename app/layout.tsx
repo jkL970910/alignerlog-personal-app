@@ -8,13 +8,13 @@ import { sessionCookieName, verifySessionToken } from "@/server/auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AlignerLog",
-  description: "Personal clear aligner wear-time tracker.",
+  title: "Loo牙管理器",
+  description: "中文隐形牙套佩戴计划与打卡管理器。",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "AlignerLog"
+    title: "Loo牙"
   }
 };
 
@@ -22,7 +22,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#fbfaf7"
+  themeColor: "#fff7f4"
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -30,7 +30,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const signedIn = Boolean(verifySessionToken(cookieStore.get(sessionCookieName)?.value));
 
   return (
-    <html lang="en">
+    <html lang="zh-Hans">
       <body>
         <ServiceWorkerRegister />
         <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">

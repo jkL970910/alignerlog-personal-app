@@ -7,15 +7,15 @@ export default function RemindersPage() {
   return (
     <>
       <PageHeader
-        eyebrow="V2 ready"
-        title="Reminders"
-        subtitle="Reminder preferences are stored now; push delivery can be added with a cloud worker."
+        eyebrow="提醒阁"
+        title="提醒"
+        subtitle="当前先保存提醒偏好；正式推送会在后续云端 worker 中接入。"
       />
       <div className="space-y-3">
-        <ReminderCard icon={<Timer className="h-5 w-5" />} title="Meal reminders" body="Schedule a cloud reminder when aligners are out for too long." />
-        <ReminderCard icon={<Moon className="h-5 w-5" />} title="Bedtime reminders" body="Keep a future evening reminder time in the same settings model." />
-        <ReminderCard icon={<Bell className="h-5 w-5" />} title="Push permission" body="Request notification permission only after a user taps the enable button." />
-        <ReminderCard icon={<Server className="h-5 w-5" />} title="Cloud worker" body="The next backend step is a reminder queue and cron sender." />
+        <ReminderCard icon={<Timer className="h-5 w-5" />} title="进食提醒" body="牙套取下过久时，后续可由云端提醒你及时戴回。" />
+        <ReminderCard icon={<Moon className="h-5 w-5" />} title="睡前提醒" body="保留晚间提醒时间，避免睡前忘记佩戴。" />
+        <ReminderCard icon={<Bell className="h-5 w-5" />} title="推送授权" body="只有你主动开启时，才请求浏览器通知权限。" />
+        <ReminderCard icon={<Server className="h-5 w-5" />} title="云端队列" body="下一步会增加提醒队列和定时发送器。" />
       </div>
     </>
   );

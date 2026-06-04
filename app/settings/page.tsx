@@ -5,9 +5,9 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Cloud profile"
-        title="Settings"
-        subtitle="Configure goals, tray details, reminders, and export your cloud data."
+        eyebrow="宝库设置"
+        title="设置"
+        subtitle="管理每日目标、当前牙套计划、提醒偏好和数据导出。"
       />
       <SettingsDashboard />
     </>

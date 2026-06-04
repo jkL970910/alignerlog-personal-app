@@ -2,13 +2,16 @@ import { subDays } from "date-fns";
 
 import { todayKey, toDateKey } from "@/lib/dates";
 import { calculateDailySummary } from "@/lib/summaries";
+import { calculatePlanProgress } from "@/lib/treatment-plan";
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
 import {
   getActiveSession,
+  getActiveTreatmentSeries,
   getOrCreateReminderSettings,
   getOrCreateTreatmentPlan,
   getOrCreateWearState,
+  listPlannedTraysForSeries,
   listSessionsForRange
 } from "@/server/repository";
 
@@ -23,6 +26,8 @@ export async function GET() {
     const wearState = await getOrCreateWearState(userId);
     const reminderSettings = await getOrCreateReminderSettings(userId);
     const activeSession = await getActiveSession(userId);
+    const activeSeries = await getActiveTreatmentSeries(userId);
+    const plannedTrays = activeSeries ? await listPlannedTraysForSeries(userId, activeSeries.id) : [];
     const sessions = await listSessionsForRange(userId, toDateKey(subDays(now, 1)), date);
     const todaySummary = calculateDailySummary({
       date,
@@ -30,13 +35,24 @@ export async function GET() {
       treatmentPlan,
       now
     });
+    const planProgress = activeSeries ? calculatePlanProgress({
+      status: activeSeries.status,
+      currentTrayNumber: activeSeries.currentTrayNumber,
+      totalTrays: activeSeries.totalTrays,
+      trayIntervalDays: activeSeries.trayIntervalDays,
+      currentTrayStartDate: activeSeries.currentTrayStartDate,
+      nextChangeDate: activeSeries.nextChangeDate,
+      trays: plannedTrays,
+      today: now
+    }) : null;
 
     return apiJson({
       wearState,
       treatmentPlan,
       reminderSettings,
       activeSession,
-      todaySummary
+      todaySummary,
+      planProgress
     });
   } catch (error) {
     return apiError(error);
