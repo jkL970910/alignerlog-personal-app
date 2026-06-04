@@ -1,6 +1,6 @@
-import type { DailyNote, OffTraySession, PlannedTray, ReminderSettings, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
+import type { DailyNote, OffTraySession, PlannedTray, PushSubscriptionRecord, ReminderJob, ReminderSettings, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
 
-import type { dailyNotes, offTraySessions, plannedTrays, reminderSettings, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import type { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 
 type UserRow = typeof users.$inferSelect;
 type TreatmentPlanRow = typeof treatmentPlans.$inferSelect;
@@ -11,6 +11,8 @@ type ReminderSettingsRow = typeof reminderSettings.$inferSelect;
 type TreatmentSeriesRow = typeof treatmentSeries.$inferSelect;
 type PlannedTrayRow = typeof plannedTrays.$inferSelect;
 type WearActionLogRow = typeof wearActionLogs.$inferSelect;
+type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
+type ReminderJobRow = typeof reminderJobs.$inferSelect;
 
 export function mapUser(row: UserRow): UserAccount {
   return {
@@ -83,5 +85,25 @@ export function mapWearActionLog(row: WearActionLogRow): WearActionLog {
   return {
     ...row,
     createdAt: row.createdAt.toISOString()
+  };
+}
+
+export function mapPushSubscription(row: PushSubscriptionRow): PushSubscriptionRecord {
+  return {
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    lastUsedAt: row.lastUsedAt?.toISOString() ?? null
+  };
+}
+
+export function mapReminderJob(row: ReminderJobRow): ReminderJob {
+  return {
+    ...row,
+    status: row.status as ReminderJob["status"],
+    dueAt: row.dueAt.toISOString(),
+    sentAt: row.sentAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
   };
 }

@@ -7,6 +7,7 @@ const publicPaths = [
   "/register",
   "/api/auth/login",
   "/api/auth/register",
+  "/api/workers/reminders/run",
   "/manifest.webmanifest",
   "/sw.js",
   "/icon.svg"

@@ -6,6 +6,10 @@ export type WearAction = "start" | "end";
 
 export type ReminderStatus = "none" | "scheduled" | "sent" | "cancelled";
 
+export type PushSubscriptionStatus = "active" | "disabled" | "expired";
+
+export type ReminderJobStatus = "scheduled" | "sent" | "cancelled" | "failed";
+
 export type UserAccount = {
   id: string;
   email: string;
@@ -58,6 +62,33 @@ export type WearActionLog = {
   userAgent: string | null;
   referer: string | null;
   createdAt: string;
+};
+
+export type PushSubscriptionRecord = {
+  id: string;
+  userId: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent: string | null;
+  status: PushSubscriptionStatus;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string | null;
+};
+
+export type ReminderJob = {
+  id: string;
+  userId: string;
+  sessionId: string;
+  kind: string;
+  dueAt: string;
+  status: ReminderJobStatus;
+  attempts: number;
+  lastError: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type DailyNote = {

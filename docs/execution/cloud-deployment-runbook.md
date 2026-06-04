@@ -17,6 +17,11 @@ ALIGNERLOG_AUTH_SECRET=<32+ character random secret>
 ALIGNERLOG_LOGIN_PASSWORD=<personal login password>
 LOO_DENTAL_OPENROUTER_API_KEY=<server-side OpenRouter key, optional until AI ships>
 LOO_DENTAL_OPENROUTER_BASE_URL=https://openrouter.icu/v1/responses
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=<web-push public key>
+VAPID_PRIVATE_KEY=<web-push private key>
+VAPID_SUBJECT=mailto:<owner-email>
+REMINDER_WORKER_SECRET=<manual worker secret>
+CRON_SECRET=<vercel cron secret>
 REPOSITORY_MODE=postgres-drizzle
 ```
 
@@ -73,6 +78,27 @@ Expected:
 - `/manifest.webmanifest` and `/sw.js` return `200`.
 - wrong login returns `401`.
 - correct login opens the protected API, settings, and export flows.
+
+## Push Reminder Notes
+
+PWA push reminders are device/browser subscriptions. Users must explicitly
+enable push on the Reminders page. Meal/off-tray reminders are not automatic
+meal detection: the reminder job is scheduled only after the user taps
+`我取下牙套了`.
+
+Vercel Cron calls `/api/workers/reminders/run` every five minutes. The worker
+accepts either:
+
+- `Authorization: Bearer $CRON_SECRET` from Vercel Cron.
+- `x-worker-secret: $REMINDER_WORKER_SECRET` for manual smoke calls.
+
+Manual smoke without sending user data:
+
+```bash
+curl -i -X POST \
+  -H "x-worker-secret: $REMINDER_WORKER_SECRET" \
+  https://<vercel-production-domain>/api/workers/reminders/run
+```
 
 ## AI Provider Notes
 

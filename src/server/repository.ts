@@ -1,11 +1,11 @@
 import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
-import { dailyNotes, offTraySessions, plannedTrays, reminderSettings, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 import { dayBounds, todayKey } from "@/lib/dates";
 import type { OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
 
-import { mapDailyNote, mapOffTraySession, mapPlannedTray, mapReminderSettings, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
+import { mapDailyNote, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
 
 const defaultGoalMinutes = 22 * 60;
 
@@ -228,6 +228,7 @@ export async function startOffTraySession(userId: string, reason?: OffTrayReason
       userId,
       ...nextState
     }).returning();
+  await scheduleMealReminderJob(userId, session.id, now);
 
   return {
     wearState: mapWearState(updatedState),
@@ -274,6 +275,7 @@ export async function endActiveOffTraySession(userId: string) {
       userId,
       ...nextState
     }).returning();
+  await cancelReminderJobsForSession(userId, active.id);
 
   return {
     wearState: mapWearState(updatedState),
@@ -509,4 +511,162 @@ export async function listAllSessions(userId: string) {
     .orderBy(asc(offTraySessions.startAt));
 
   return rows.map(mapOffTraySession);
+}
+
+export async function upsertPushSubscription(params: {
+  userId: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent?: string | null;
+}) {
+  const db = getDb();
+  const now = new Date();
+  const [subscription] = await db.insert(pushSubscriptions).values({
+    userId: params.userId,
+    endpoint: params.endpoint,
+    p256dh: params.p256dh,
+    auth: params.auth,
+    userAgent: params.userAgent ?? null,
+    status: "active",
+    createdAt: now,
+    updatedAt: now
+  }).onConflictDoUpdate({
+    target: pushSubscriptions.endpoint,
+    set: {
+      userId: params.userId,
+      p256dh: params.p256dh,
+      auth: params.auth,
+      userAgent: params.userAgent ?? null,
+      status: "active",
+      updatedAt: now
+    }
+  }).returning();
+
+  return mapPushSubscription(subscription);
+}
+
+export async function disablePushSubscription(userId: string, endpoint: string) {
+  const db = getDb();
+  const now = new Date();
+  const [subscription] = await db.update(pushSubscriptions)
+    .set({ status: "disabled", updatedAt: now })
+    .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint)))
+    .returning();
+
+  return subscription ? mapPushSubscription(subscription) : null;
+}
+
+export async function listActivePushSubscriptions(userId: string) {
+  const db = getDb();
+  const rows = await db.select().from(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.status, "active")))
+    .orderBy(desc(pushSubscriptions.updatedAt));
+
+  return rows.map(mapPushSubscription);
+}
+
+export async function markPushSubscriptionExpired(endpoint: string) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.update(pushSubscriptions)
+    .set({ status: "expired", updatedAt: now })
+    .where(eq(pushSubscriptions.endpoint, endpoint));
+}
+
+export async function markPushSubscriptionUsed(endpoint: string) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.update(pushSubscriptions)
+    .set({ lastUsedAt: now, updatedAt: now })
+    .where(eq(pushSubscriptions.endpoint, endpoint));
+}
+
+export async function scheduleMealReminderJob(userId: string, sessionId: string, startedAt: Date) {
+  const settings = await getOrCreateReminderSettings(userId);
+
+  if (!settings.enableMealReminder) {
+    return null;
+  }
+
+  const db = getDb();
+  const now = new Date();
+  const dueAt = new Date(startedAt.getTime() + settings.mealReminderMinutes * 60_000);
+  const [job] = await db.insert(reminderJobs).values({
+    userId,
+    sessionId,
+    kind: "off_tray_return",
+    dueAt,
+    status: "scheduled",
+    attempts: 0,
+    createdAt: now,
+    updatedAt: now
+  }).onConflictDoUpdate({
+    target: [reminderJobs.sessionId, reminderJobs.kind],
+    set: {
+      dueAt,
+      status: "scheduled",
+      attempts: 0,
+      lastError: null,
+      sentAt: null,
+      updatedAt: now
+    }
+  }).returning();
+
+  return mapReminderJob(job);
+}
+
+export async function cancelReminderJobsForSession(userId: string, sessionId: string) {
+  const db = getDb();
+  const now = new Date();
+  const rows = await db.update(reminderJobs)
+    .set({ status: "cancelled", updatedAt: now })
+    .where(and(
+      eq(reminderJobs.userId, userId),
+      eq(reminderJobs.sessionId, sessionId),
+      eq(reminderJobs.status, "scheduled")
+    ))
+    .returning();
+
+  return rows.map(mapReminderJob);
+}
+
+export async function listDueReminderJobs(limit = 25) {
+  const db = getDb();
+  const rows = await db.select().from(reminderJobs)
+    .where(and(eq(reminderJobs.status, "scheduled"), lte(reminderJobs.dueAt, new Date())))
+    .orderBy(asc(reminderJobs.dueAt))
+    .limit(limit);
+
+  return rows.map(mapReminderJob);
+}
+
+export async function markReminderJobSent(jobId: string) {
+  const db = getDb();
+  const now = new Date();
+  const [job] = await db.update(reminderJobs)
+    .set({ status: "sent", sentAt: now, updatedAt: now })
+    .where(eq(reminderJobs.id, jobId))
+    .returning();
+
+  return mapReminderJob(job);
+}
+
+export async function markReminderJobFailed(jobId: string, error: string) {
+  const db = getDb();
+  const now = new Date();
+  const [existing] = await db.select().from(reminderJobs).where(eq(reminderJobs.id, jobId)).limit(1);
+  const [job] = await db.update(reminderJobs)
+    .set({
+      status: "failed",
+      attempts: (existing?.attempts ?? 0) + 1,
+      lastError: error.slice(0, 1000),
+      updatedAt: now
+    })
+    .where(eq(reminderJobs.id, jobId))
+    .returning();
+
+  return mapReminderJob(job);
 }

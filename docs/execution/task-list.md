@@ -179,6 +179,7 @@ Tasks:
 - Clarify Calendar daily note persistence with saved-state feedback and note-only day labeling. Implemented locally.
 - Clarify reminder UX as manual off-tray timer, not automatic meal detection. Implemented locally.
 - Add Calendar tray boundary markers and selected-day tray start/end details from imported plan. Implemented locally.
+- Add PWA Web Push P0: browser subscription UI, push subscription storage, off-tray reminder jobs, service-worker notification handling, and protected reminder worker endpoint. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
@@ -190,8 +191,8 @@ Acceptance:
 
 ## Current Next Priorities
 
-1. Deploy reminder UX clarification and Calendar tray boundary markers.
-2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data/tray-boundary states, Settings plan create/import/update/reset.
+1. Deploy PWA push reminders, run DB migration, configure Vercel VAPID/Cron env, and manually test notification permission/subscription on phone.
+2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data/tray-boundary states, Settings plan create/import/update/reset, push subscription and reminder worker.
 3. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
 4. P1 exception flows: late change, tray extension, poor fit, lost/broken tray, waiting for refinement.
 

@@ -50,6 +50,12 @@ export const wearActionEnum = pgEnum("wear_action", [
   "end"
 ]);
 
+export const pushSubscriptionStatusEnum = pgEnum("push_subscription_status", [
+  "active",
+  "disabled",
+  "expired"
+]);
+
 export const users = pgTable(
   "users",
   {
@@ -168,6 +174,48 @@ export const reminderSettings = pgTable(
   },
   (table) => ({
     userIdIdx: uniqueIndex("reminder_settings_user_id_idx").on(table.userId)
+  })
+);
+
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    status: pushSubscriptionStatusEnum("status").notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true })
+  },
+  (table) => ({
+    endpointIdx: uniqueIndex("push_subscriptions_endpoint_idx").on(table.endpoint),
+    userStatusIdx: index("push_subscriptions_user_status_idx").on(table.userId, table.status)
+  })
+);
+
+export const reminderJobs = pgTable(
+  "reminder_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    sessionId: uuid("session_id").notNull(),
+    kind: varchar("kind", { length: 40 }).notNull(),
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("scheduled"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    sessionKindIdx: uniqueIndex("reminder_jobs_session_kind_idx").on(table.sessionId, table.kind),
+    dueStatusIdx: index("reminder_jobs_due_status_idx").on(table.status, table.dueAt),
+    userStatusIdx: index("reminder_jobs_user_status_idx").on(table.userId, table.status)
   })
 );
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = "alignerlog-shell-v1";
+const CACHE_NAME = "alignerlog-shell-v2";
 const SHELL_ASSETS = ["/today", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -32,14 +32,35 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   const data = event.data?.json?.() ?? {
     title: "Loo牙管理器",
-    body: "Remember to put your aligners back in."
+    body: "牙套已经取下一段时间了。若已经吃完或刷牙完成，请记得戴回。",
+    url: "/today"
   };
 
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: "/icon.svg",
-      badge: "/icon.svg"
+      badge: "/icon.svg",
+      data: {
+        url: data.url ?? "/today"
+      }
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url ?? "/today", self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((client) => client.url === targetUrl);
+
+      if (existing) {
+        return existing.focus();
+      }
+
+      return self.clients.openWindow(targetUrl);
     })
   );
 });
