@@ -4,7 +4,7 @@ import { addDays, format, isValid, parseISO, subDays } from "date-fns";
 import { FormEvent, useEffect, useState } from "react";
 import { Download, Loader2, Save, Sparkles } from "lucide-react";
 
-import type { ReminderSettings, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
+import type { PlanProgress, ReminderSettings, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
 import { formatMinutes } from "@/lib/format";
 
 import { SetupWarning } from "./setup-warning";
@@ -12,27 +12,31 @@ import { SetupWarning } from "./setup-warning";
 type SettingsPayload = {
   treatmentPlan: TreatmentPlan;
   reminderSettings: ReminderSettings;
+  activeSeries: TreatmentSeries | null;
+  planProgress: PlanProgress | null;
 };
 
 type ImportState = TreatmentPlanImportInput;
+type PlanSetupMode = "new" | "import";
 
-function createDefaultImport(): ImportState {
+function createDefaultImport(mode: PlanSetupMode = "import", dailyGoalMinutes = 1320): ImportState {
   const today = new Date().toISOString().slice(0, 10);
+  const isNewPlan = mode === "new";
 
   return {
-  status: "active",
-  seriesType: "active",
-  name: "第一阶段",
-  currentTrayNumber: 1,
+    status: isNewPlan ? "not_started" : "active",
+    seriesType: "active",
+    name: isNewPlan ? "新牙套计划" : "当前阶段",
+    currentTrayNumber: 1,
     totalTrays: 1,
     overallTotalTrays: 1,
     overallTreatmentDays: 7,
-  trayIntervalDays: 7,
-  dailyGoalMinutes: 1320,
+    trayIntervalDays: 7,
+    dailyGoalMinutes,
     currentTrayStartDate: today,
     nextChangeDate: addDaysKey(today, 7),
-  clinicianNotes: ""
-};
+    clinicianNotes: ""
+  };
 }
 
 export function SettingsDashboard() {
@@ -43,6 +47,8 @@ export function SettingsDashboard() {
   const [importPreview, setImportPreview] = useState<TreatmentPlanImportPreview | null>(null);
   const [importPending, setImportPending] = useState(false);
   const [importDraftInitialized, setImportDraftInitialized] = useState(false);
+  const [planSetupMode, setPlanSetupMode] = useState<PlanSetupMode>("import");
+  const [planEditorOpen, setPlanEditorOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -63,21 +69,34 @@ export function SettingsDashboard() {
       return;
     }
 
-    const base = createDefaultImport();
-    const totalTrays = settings.treatmentPlan.totalTrays ?? base.totalTrays;
-    const currentTrayStartDate = settings.treatmentPlan.startDate || base.currentTrayStartDate || new Date().toISOString().slice(0, 10);
+    const activeSeries = settings.activeSeries;
+    const base = createDefaultImport("import", settings.treatmentPlan.dailyGoalMinutes);
 
-    setImportDraft({
-      ...base,
-      currentTrayNumber: settings.treatmentPlan.currentTrayNumber,
-      totalTrays,
-      overallTotalTrays: totalTrays,
-      overallTreatmentDays: totalTrays * settings.treatmentPlan.daysPerTray,
-      trayIntervalDays: settings.treatmentPlan.daysPerTray,
-      dailyGoalMinutes: settings.treatmentPlan.dailyGoalMinutes,
-      currentTrayStartDate,
-      nextChangeDate: addDaysKey(currentTrayStartDate, settings.treatmentPlan.daysPerTray) ?? base.nextChangeDate ?? currentTrayStartDate
-    });
+    if (activeSeries) {
+      setImportDraft({
+        ...base,
+        status: activeSeries.status,
+        seriesType: activeSeries.seriesType,
+        name: activeSeries.name,
+        startDate: activeSeries.startDate,
+        currentTrayNumber: activeSeries.currentTrayNumber,
+        totalTrays: activeSeries.totalTrays ?? base.totalTrays,
+        overallTotalTrays: activeSeries.overallTotalTrays ?? activeSeries.totalTrays ?? base.totalTrays,
+        overallTreatmentDays: activeSeries.overallTreatmentDays ?? undefined,
+        trayIntervalDays: activeSeries.trayIntervalDays,
+        dailyGoalMinutes: activeSeries.dailyGoalMinutes,
+        currentTrayStartDate: activeSeries.currentTrayStartDate,
+        nextChangeDate: activeSeries.nextChangeDate ?? undefined,
+        appointmentDate: activeSeries.appointmentDate ?? undefined,
+        clinicianNotes: activeSeries.clinicianNotes
+      });
+      setPlanSetupMode(activeSeries.currentTrayNumber > 1 ? "import" : "new");
+      setPlanEditorOpen(false);
+    } else {
+      setImportDraft(base);
+      setPlanSetupMode("import");
+      setPlanEditorOpen(true);
+    }
     setImportDraftInitialized(true);
   }, [importDraftInitialized, settings]);
 
@@ -153,6 +172,8 @@ export function SettingsDashboard() {
       setImportPreview(payload);
       setSettings(settings ? {
         ...settings,
+        activeSeries: payload.series,
+        planProgress: payload.progress,
         treatmentPlan: {
           ...settings.treatmentPlan,
           startDate: payload.series.startDate,
@@ -162,11 +183,19 @@ export function SettingsDashboard() {
           dailyGoalMinutes: payload.series.dailyGoalMinutes
         }
       } : settings);
+      setPlanEditorOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法保存牙套计划。");
     } finally {
       setImportPending(false);
     }
+  }
+
+  function choosePlanSetupMode(mode: PlanSetupMode) {
+    setPlanSetupMode(mode);
+    setPlanEditorOpen(true);
+    setImportPreview(null);
+    setImportDraft(createDefaultImport(mode, settings?.treatmentPlan.dailyGoalMinutes ?? 1320));
   }
 
   function updateImportDraft(next: ImportState) {
@@ -201,201 +230,233 @@ export function SettingsDashboard() {
     );
   }
 
+  const hasRealPlan = Boolean(settings.activeSeries);
+  const progress = settings.planProgress;
+  const planCtaTitle = hasRealPlan ? "调整牙套计划" : "设置你的牙套计划";
+  const isNewPlanMode = planSetupMode === "new";
+
   return (
     <form className="space-y-4" onSubmit={save}>
-      <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-ink">每日目标</h2>
-        <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="dailyGoalMinutes">
-          目标分钟数
-        </label>
-        <input
-          className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
-          id="dailyGoalMinutes"
-          inputMode="numeric"
-          min={60}
-          onChange={(event) => setSettings({
-            ...settings,
-            treatmentPlan: {
-              ...settings.treatmentPlan,
-              dailyGoalMinutes: Number(event.target.value)
-            }
-          })}
-          type="number"
-          value={settings.treatmentPlan.dailyGoalMinutes}
-        />
-      </section>
-
-      <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-ink">当前牙套计划</h2>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <Field
-            label="开始日期"
-            type="date"
-            value={settings.treatmentPlan.startDate}
-            onChange={(value) => setSettings({
-              ...settings,
-              treatmentPlan: { ...settings.treatmentPlan, startDate: value }
-            })}
-          />
-          <Field
-            label="当前第几副"
-            type="number"
-            value={String(settings.treatmentPlan.currentTrayNumber)}
-            onChange={(value) => setSettings({
-              ...settings,
-              treatmentPlan: { ...settings.treatmentPlan, currentTrayNumber: Number(value) }
-            })}
-          />
-          <Field
-            label="总副数"
-            type="number"
-            value={String(settings.treatmentPlan.totalTrays ?? "")}
-            onChange={(value) => setSettings({
-              ...settings,
-              treatmentPlan: { ...settings.treatmentPlan, totalTrays: value ? Number(value) : null }
-            })}
-          />
-          <Field
-            label="每副天数"
-            type="number"
-            value={String(settings.treatmentPlan.daysPerTray)}
-            onChange={(value) => setSettings({
-              ...settings,
-              treatmentPlan: { ...settings.treatmentPlan, daysPerTray: Number(value) }
-            })}
-          />
-        </div>
-      </section>
-
       <section className="rounded-md border border-amber/20 bg-white p-4 shadow-soft">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-mist text-amber">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-ink">导入既有牙套计划</h2>
+            <h2 className="text-lg font-semibold text-ink">佩戴目标与牙套计划</h2>
             <p className="mt-1 text-sm leading-6 text-ink/60">
-              这是一次性导入，不需要每周手动重填。填入当前副或下次换期作为锚点后，系统会按每副天数自动生成日程。
+              每日目标用于打卡统计；牙套计划只展示你确认保存过的真实计划，不再把新账号默认值当作当前计划。
             </p>
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <label className="col-span-2 block text-sm font-medium text-ink/70" htmlFor="import-status">
-            当前状态
-            <select
-              className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
-              id="import-status"
-              onChange={(event) => {
-                const status = event.target.value as TreatmentStatus;
-                updateImportDraft({
-                  ...importDraft,
-                  status,
-                  seriesType: status === "retainer" ? "retainer" : status === "holding" ? "holding" : importDraft.seriesType
-                });
-              }}
-              value={importDraft.status}
-            >
-              <option value="not_started">尚未开始</option>
-              <option value="active">正在佩戴</option>
-              <option value="holding">保持/被动佩戴</option>
-              <option value="waiting_refinement">等待精修</option>
-              <option value="retainer">保持器阶段</option>
-            </select>
-          </label>
-
-          <label className="col-span-2 block text-sm font-medium text-ink/70" htmlFor="import-series-name">
-            阶段名称
-            <input
-              className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
-              id="import-series-name"
-              onChange={(event) => updateImportDraft({ ...importDraft, name: event.target.value })}
-              value={importDraft.name}
-            />
-          </label>
-
-          <label className="block text-sm font-medium text-ink/70" htmlFor="import-series-type">
-            阶段类型
-            <select
-              className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
-              id="import-series-type"
-              onChange={(event) => updateImportDraft({ ...importDraft, seriesType: event.target.value as TreatmentSeriesType })}
-              value={importDraft.seriesType}
-            >
-              <option value="active">主动移动</option>
-              <option value="refinement">精修</option>
-              <option value="holding">保持/等待</option>
-              <option value="retainer">保持器</option>
-            </select>
-          </label>
-
-          <ImportField label="当前第几副" min={1} value={importDraft.currentTrayNumber} onChange={(value) => updateImportDraft({ ...importDraft, currentTrayNumber: value })} />
-          <ImportField label="当前阶段总副数" helper="例如这一盒/这一阶段共有 20 副；未来精修可之后再加。" min={1} value={importDraft.totalTrays} onChange={(value) => updateImportDraft({ ...importDraft, totalTrays: value, overallTotalTrays: Math.max(importDraft.overallTotalTrays ?? value, value) })} />
-          <ImportField label="全程预估总副数" helper="如果医生给了整体副数就填；不知道可先等于当前阶段。" min={1} value={importDraft.overallTotalTrays ?? importDraft.totalTrays} onChange={(value) => updateImportDraft({ ...importDraft, overallTotalTrays: value })} />
-          <ImportField label="治疗总周期天数" helper="可选。比如 20 副 x 7 天 = 140 天。" min={1} value={importDraft.overallTreatmentDays ?? importDraft.totalTrays * importDraft.trayIntervalDays} onChange={(value) => updateImportDraft({ ...importDraft, overallTreatmentDays: value })} />
-          <ImportField label="每副佩戴天数" helper="医生要求的换副周期，常见 7/10/14 天。" min={1} value={importDraft.trayIntervalDays} onChange={(value) => updateImportSchedule({ trayIntervalDays: value, overallTreatmentDays: (importDraft.overallTotalTrays ?? importDraft.totalTrays) * value })} />
-          <ImportField label="每日目标分钟" min={60} value={importDraft.dailyGoalMinutes} onChange={(value) => updateImportDraft({ ...importDraft, dailyGoalMinutes: value })} />
-
-          <p className="col-span-2 rounded-md bg-mist/60 p-3 text-xs leading-5 text-ink/60">
-            计划锚点只用于导入时定位当前进度：优先填“当前副开始日期”。如果你只记得下次换牙套日期，也可以填下次换期，系统会反推当前副开始日。之后每周换期由系统自动计算。
-          </p>
-
-          <DateField
-            label="当前副开始日期"
-            helper="推荐填写：这副牙套从哪天开始戴。"
-            value={importDraft.currentTrayStartDate ?? ""}
-            onChange={(value) => updateImportSchedule({ currentTrayStartDate: value || undefined })}
+        <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="dailyGoalMinutes">
+          每日佩戴目标
+          <input
+            className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
+            id="dailyGoalMinutes"
+            inputMode="numeric"
+            min={60}
+            onChange={(event) => setSettings({
+              ...settings,
+              treatmentPlan: {
+                ...settings.treatmentPlan,
+                dailyGoalMinutes: Number(event.target.value)
+              }
+            })}
+            type="number"
+            value={settings.treatmentPlan.dailyGoalMinutes}
           />
-          <DateField
-            label="下次计划换期"
-            helper="会根据当前副开始日 + 每副天数自动填；也可手动覆盖。"
-            value={importDraft.nextChangeDate ?? ""}
-            onChange={(value) => updateImportSchedule({ nextChangeDate: value || undefined })}
-          />
-          <DateField
-            label="整体治疗开始日"
-            helper="可选。用于估算全程进度；不知道可不填。"
-            value={importDraft.startDate ?? ""}
-            onChange={(value) => updateImportDraft({ ...importDraft, startDate: value || undefined })}
-          />
-          <DateField
-            label="下次复诊日期"
-            value={importDraft.appointmentDate ?? ""}
-            onChange={(value) => updateImportDraft({ ...importDraft, appointmentDate: value || undefined })}
-          />
+          <span className="mt-1 block text-xs leading-5 text-ink/50">默认 22 小时，可按医生要求调整。</span>
+        </label>
 
-          <label className="col-span-2 block text-sm font-medium text-ink/70" htmlFor="clinician-notes">
-            医嘱备注
-            <textarea
-              className="mt-2 min-h-24 w-full resize-none rounded-md border border-ink/10 bg-paper px-3 py-2 text-ink outline-none focus:border-mint"
-              id="clinician-notes"
-              onChange={(event) => updateImportDraft({ ...importDraft, clinicianNotes: event.target.value })}
-              placeholder="例如：医生要求每副佩戴10天、下一次复诊时间、某一副需要多戴等。"
-              value={importDraft.clinicianNotes ?? ""}
-            />
-          </label>
-        </div>
+        {hasRealPlan && settings.activeSeries && progress ? (
+          <div className="mt-4 rounded-md border border-mint/20 bg-mint/10 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sage">当前真实计划</p>
+                <h3 className="mt-1 text-lg font-semibold text-ink">{settings.activeSeries.name}</h3>
+                <p className="mt-1 text-sm text-ink/60">{formatStatus(settings.activeSeries.status)} · {formatSeriesType(settings.activeSeries.seriesType)}</p>
+              </div>
+              <button
+                className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
+                onClick={() => setPlanEditorOpen((open) => !open)}
+                type="button"
+              >
+                {planEditorOpen ? "收起" : "调整"}
+              </button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <PreviewMetric label="当前牙套" value={`第 ${progress.currentTrayNumber} / ${progress.totalTrays ?? "?"} 副`} />
+              <PreviewMetric label="当前第几天" value={progress.currentTrayDay ? `第 ${progress.currentTrayDay} 天` : "暂停中"} />
+              <PreviewMetric label="下次换期" value={progress.nextChangeDate ?? "按医生安排"} />
+              <PreviewMetric label="剩余副数" value={progress.traysRemaining === null ? "未知" : `${progress.traysRemaining} 副`} />
+              <PreviewMetric label="全程副数" value={progress.overallTotalTrays ? `${progress.overallTotalTrays} 副` : "未知"} />
+              <PreviewMetric label="治疗总周期" value={progress.overallTreatmentDays ? `${progress.overallTreatmentDays} 天` : "未知"} />
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-dashed border-amber/40 bg-mist/50 p-3">
+            <h3 className="font-semibold text-ink">还没有真实牙套计划</h3>
+            <p className="mt-1 text-sm leading-6 text-ink/60">
+              你可以从第 1 副开始创建新计划，也可以导入已经佩戴了一段时间的计划。确认保存前，页面不会把默认值当成你的真实进度。
+            </p>
+          </div>
+        )}
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button
-            className="flex min-h-12 items-center justify-center rounded-md border border-ink/10 px-4 text-sm font-semibold text-ink disabled:opacity-60"
-            disabled={importPending}
-            onClick={previewImport}
+            className={`min-h-12 rounded-md border px-3 text-sm font-semibold ${planSetupMode === "new" ? "border-ink bg-ink text-white" : "border-ink/10 text-ink"}`}
+            onClick={() => choosePlanSetupMode("new")}
             type="button"
           >
-            生成预览
+            开始新计划
           </button>
           <button
-            className="flex min-h-12 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
-            disabled={importPending || !importPreview}
-            onClick={confirmImport}
+            className={`min-h-12 rounded-md border px-3 text-sm font-semibold ${planSetupMode === "import" ? "border-ink bg-ink text-white" : "border-ink/10 text-ink"}`}
+            onClick={() => choosePlanSetupMode("import")}
             type="button"
           >
-            {importPending ? "处理中..." : "确认导入"}
+            导入已进行计划
           </button>
         </div>
 
-        {importPreview ? <ImportPreviewCard preview={importPreview} /> : null}
+        {!planEditorOpen && hasRealPlan ? (
+          <button
+            className="mt-3 min-h-12 w-full rounded-md border border-ink/10 px-4 text-sm font-semibold text-ink"
+            onClick={() => setPlanEditorOpen(true)}
+            type="button"
+          >
+            {planCtaTitle}
+          </button>
+        ) : null}
+
+        {planEditorOpen ? (
+          <>
+            <div className="mt-4 rounded-md bg-mist/60 p-3 text-xs leading-5 text-ink/60">
+              {isNewPlanMode
+                ? "新计划适合还没开始或准备从第 1 副开始追踪的情况。填写医生给你的总副数、每副佩戴天数和计划开始日，系统会生成后续日程。"
+                : "导入已进行计划适合已经佩戴了一段时间的情况。填写当前第几副和当前副开始日期；如果只记得下次换牙套日期，系统会反推当前副开始日。这不是每周都要重填。"}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <label className="col-span-2 block text-sm font-medium text-ink/70" htmlFor="import-status">
+                当前状态
+                <select
+                  className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
+                  id="import-status"
+                  onChange={(event) => {
+                    const status = event.target.value as TreatmentStatus;
+                    updateImportDraft({
+                      ...importDraft,
+                      status,
+                      seriesType: status === "retainer" ? "retainer" : status === "holding" ? "holding" : importDraft.seriesType
+                    });
+                  }}
+                  value={importDraft.status}
+                >
+                  <option value="not_started">尚未开始</option>
+                  <option value="active">正在佩戴</option>
+                  <option value="holding">保持/被动佩戴</option>
+                  <option value="waiting_refinement">等待精修</option>
+                  <option value="retainer">保持器阶段</option>
+                </select>
+              </label>
+
+              <label className="col-span-2 block text-sm font-medium text-ink/70" htmlFor="import-series-name">
+                阶段名称
+                <input
+                  className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
+                  id="import-series-name"
+                  onChange={(event) => updateImportDraft({ ...importDraft, name: event.target.value })}
+                  value={importDraft.name}
+                />
+              </label>
+
+              <label className="block text-sm font-medium text-ink/70" htmlFor="import-series-type">
+                阶段类型
+                <select
+                  className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
+                  id="import-series-type"
+                  onChange={(event) => updateImportDraft({ ...importDraft, seriesType: event.target.value as TreatmentSeriesType })}
+                  value={importDraft.seriesType}
+                >
+                  <option value="active">主动移动</option>
+                  <option value="refinement">精修</option>
+                  <option value="holding">保持/等待</option>
+                  <option value="retainer">保持器</option>
+                </select>
+              </label>
+
+              <ImportField label={isNewPlanMode ? "起始第几副" : "当前第几副"} min={1} value={importDraft.currentTrayNumber} onChange={(value) => updateImportDraft({ ...importDraft, currentTrayNumber: value })} />
+              <ImportField label="当前阶段总副数" helper="例如这一盒/这一阶段共有 20 副；未来精修可之后再加。" min={1} value={importDraft.totalTrays} onChange={(value) => updateImportDraft({ ...importDraft, totalTrays: value, overallTotalTrays: Math.max(importDraft.overallTotalTrays ?? value, value) })} />
+              <ImportField label="全程预估总副数" helper="如果医生给了整体副数就填；不知道可先等于当前阶段。" min={1} value={importDraft.overallTotalTrays ?? importDraft.totalTrays} onChange={(value) => updateImportDraft({ ...importDraft, overallTotalTrays: value })} />
+              <ImportField label="治疗总周期天数" helper="可选。比如 20 副 x 7 天 = 140 天。" min={1} value={importDraft.overallTreatmentDays ?? importDraft.totalTrays * importDraft.trayIntervalDays} onChange={(value) => updateImportDraft({ ...importDraft, overallTreatmentDays: value })} />
+              <ImportField label="每副佩戴天数" helper="医生要求的换副周期，常见 7/10/14 天。" min={1} value={importDraft.trayIntervalDays} onChange={(value) => updateImportSchedule({ trayIntervalDays: value, overallTreatmentDays: (importDraft.overallTotalTrays ?? importDraft.totalTrays) * value })} />
+              <ImportField label="每日目标分钟" min={60} value={importDraft.dailyGoalMinutes} onChange={(value) => updateImportDraft({ ...importDraft, dailyGoalMinutes: value })} />
+
+              <p className="col-span-2 rounded-md bg-mist/60 p-3 text-xs leading-5 text-ink/60">
+                日期只用于首次生成日程：优先填“{isNewPlanMode ? "计划开始日期" : "当前副开始日期"}”。之后每周/每期换牙套由系统按每副天数自动计算，不需要重复填写。
+              </p>
+
+              <DateField
+                label={isNewPlanMode ? "计划开始日期" : "当前副开始日期"}
+                helper={isNewPlanMode ? "第 1 副计划从哪天开始戴。" : "推荐填写：这副牙套从哪天开始戴。"}
+                value={importDraft.currentTrayStartDate ?? ""}
+                onChange={(value) => updateImportSchedule({ currentTrayStartDate: value || undefined })}
+              />
+              <DateField
+                label="下次计划换期"
+                helper={isNewPlanMode ? "会根据计划开始日 + 每副天数自动填。" : "会根据当前副开始日 + 每副天数自动填；只记得下次换期时可手动覆盖。"}
+                value={importDraft.nextChangeDate ?? ""}
+                onChange={(value) => updateImportSchedule({ nextChangeDate: value || undefined })}
+              />
+              <DateField
+                label="整体治疗开始日"
+                helper="可选。用于估算全程进度；不知道可不填。"
+                value={importDraft.startDate ?? ""}
+                onChange={(value) => updateImportDraft({ ...importDraft, startDate: value || undefined })}
+              />
+              <DateField
+                label="下次复诊日期"
+                value={importDraft.appointmentDate ?? ""}
+                onChange={(value) => updateImportDraft({ ...importDraft, appointmentDate: value || undefined })}
+              />
+
+              <label className="col-span-2 block text-sm font-medium text-ink/70" htmlFor="clinician-notes">
+                医嘱备注
+                <textarea
+                  className="mt-2 min-h-24 w-full resize-none rounded-md border border-ink/10 bg-paper px-3 py-2 text-ink outline-none focus:border-mint"
+                  id="clinician-notes"
+                  onChange={(event) => updateImportDraft({ ...importDraft, clinicianNotes: event.target.value })}
+                  placeholder="例如：医生要求每副佩戴10天、下一次复诊时间、某一副需要多戴等。"
+                  value={importDraft.clinicianNotes ?? ""}
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button
+                className="flex min-h-12 items-center justify-center rounded-md border border-ink/10 px-4 text-sm font-semibold text-ink disabled:opacity-60"
+                disabled={importPending}
+                onClick={previewImport}
+                type="button"
+              >
+                生成预览
+              </button>
+              <button
+                className="flex min-h-12 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+                disabled={importPending || !importPreview}
+                onClick={confirmImport}
+                type="button"
+              >
+                {importPending ? "处理中..." : "确认保存计划"}
+              </button>
+            </div>
+
+            {importPreview ? <ImportPreviewCard preview={importPreview} /> : null}
+          </>
+        ) : null}
       </section>
 
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
@@ -459,29 +520,6 @@ export function SettingsDashboard() {
         保存设置
       </button>
     </form>
-  );
-}
-
-function Field(props: {
-  label: string;
-  type: "date" | "number";
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const id = `field-${props.label.length}-${props.type}`;
-
-  return (
-    <label className="block text-sm font-medium text-ink/70" htmlFor={id}>
-      {props.label}
-      <input
-        className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
-        id={id}
-        inputMode={props.type === "number" ? "numeric" : undefined}
-        onChange={(event) => props.onChange(event.target.value)}
-        type={props.type}
-        value={props.value}
-      />
-    </label>
   );
 }
 
@@ -572,6 +610,29 @@ function PreviewMetric({ label, value }: { label: string; value: string }) {
       <p className="mt-1 font-semibold text-ink">{value}</p>
     </div>
   );
+}
+
+function formatStatus(status: TreatmentStatus) {
+  const labels: Record<TreatmentStatus, string> = {
+    not_started: "尚未开始",
+    active: "正在佩戴",
+    holding: "保持/被动佩戴",
+    waiting_refinement: "等待精修",
+    retainer: "保持器阶段"
+  };
+
+  return labels[status];
+}
+
+function formatSeriesType(seriesType: TreatmentSeriesType) {
+  const labels: Record<TreatmentSeriesType, string> = {
+    active: "主动移动",
+    refinement: "精修",
+    holding: "保持/等待",
+    retainer: "保持器"
+  };
+
+  return labels[seriesType];
 }
 
 function normalizeImportDraft(draft: ImportState): TreatmentPlanImportInput {
