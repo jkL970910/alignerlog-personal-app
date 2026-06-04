@@ -39,6 +39,8 @@ export async function GET() {
       status: activeSeries.status,
       currentTrayNumber: activeSeries.currentTrayNumber,
       totalTrays: activeSeries.totalTrays,
+      overallTotalTrays: activeSeries.overallTotalTrays,
+      overallTreatmentDays: activeSeries.overallTreatmentDays,
       trayIntervalDays: activeSeries.trayIntervalDays,
       currentTrayStartDate: activeSeries.currentTrayStartDate,
       nextChangeDate: activeSeries.nextChangeDate,

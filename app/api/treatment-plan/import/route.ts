@@ -16,6 +16,8 @@ const importSchema = z.object({
     startDate: z.string().optional(),
     currentTrayNumber: z.number().int().positive(),
     totalTrays: z.number().int().positive(),
+    overallTotalTrays: z.number().int().positive().optional(),
+    overallTreatmentDays: z.number().int().positive().optional(),
     trayIntervalDays: z.number().int().positive().max(30),
     dailyGoalMinutes: z.number().int().min(60).max(1440),
     currentTrayStartDate: z.string().optional(),

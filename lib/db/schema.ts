@@ -156,6 +156,8 @@ export const treatmentSeries = pgTable(
     startDate: varchar("start_date", { length: 10 }).notNull(),
     currentTrayNumber: integer("current_tray_number").notNull(),
     totalTrays: integer("total_trays"),
+    overallTotalTrays: integer("overall_total_trays"),
+    overallTreatmentDays: integer("overall_treatment_days"),
     trayIntervalDays: integer("tray_interval_days").notNull().default(7),
     dailyGoalMinutes: integer("daily_goal_minutes").notNull().default(1320),
     currentTrayStartDate: varchar("current_tray_start_date", { length: 10 }).notNull(),

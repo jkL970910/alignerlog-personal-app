@@ -33,6 +33,8 @@ export function buildTreatmentPlanImportPreview(input: TreatmentPlanImportInput,
     status: normalized.status,
     currentTrayNumber: normalized.currentTrayNumber,
     totalTrays: normalized.totalTrays,
+    overallTotalTrays: normalized.overallTotalTrays ?? normalized.totalTrays,
+    overallTreatmentDays: normalized.overallTreatmentDays ?? null,
     trayIntervalDays: normalized.trayIntervalDays,
     currentTrayStartDate: dateKey(currentTrayStartDate),
     nextChangeDate: normalized.nextChangeDate,
@@ -48,6 +50,8 @@ export function buildTreatmentPlanImportPreview(input: TreatmentPlanImportInput,
       startDate: dateKey(startDate),
       currentTrayNumber: normalized.currentTrayNumber,
       totalTrays: normalized.totalTrays,
+      overallTotalTrays: normalized.overallTotalTrays ?? normalized.totalTrays,
+      overallTreatmentDays: normalized.overallTreatmentDays ?? null,
       trayIntervalDays: normalized.trayIntervalDays,
       dailyGoalMinutes: normalized.dailyGoalMinutes,
       currentTrayStartDate: dateKey(currentTrayStartDate),
@@ -66,6 +70,8 @@ export function calculatePlanProgress(params: {
   status: TreatmentStatus;
   currentTrayNumber: number;
   totalTrays: number | null;
+  overallTotalTrays?: number | null;
+  overallTreatmentDays?: number | null;
   trayIntervalDays: number;
   currentTrayStartDate: string;
   nextChangeDate?: string | null;
@@ -85,6 +91,8 @@ export function calculatePlanProgress(params: {
     status: params.status,
     currentTrayNumber: params.currentTrayNumber,
     totalTrays: params.totalTrays,
+    overallTotalTrays: params.overallTotalTrays ?? params.totalTrays,
+    overallTreatmentDays: params.overallTreatmentDays ?? null,
     currentTrayDay: isPausedStatus(params.status) ? null : currentTrayDay,
     trayIntervalDays: params.trayIntervalDays,
     daysUntilNextChange: isPausedStatus(params.status) ? null : daysUntilNextChange,
@@ -164,6 +172,14 @@ function normalizeImportInput(input: TreatmentPlanImportInput): TreatmentPlanImp
 
   if (!Number.isInteger(input.totalTrays) || input.totalTrays < input.currentTrayNumber) {
     throw new Error("总副数不能小于当前副数。");
+  }
+
+  if (input.overallTotalTrays !== undefined && (!Number.isInteger(input.overallTotalTrays) || input.overallTotalTrays < input.currentTrayNumber)) {
+    throw new Error("全程总副数不能小于当前副数。");
+  }
+
+  if (input.overallTreatmentDays !== undefined && (!Number.isInteger(input.overallTreatmentDays) || input.overallTreatmentDays < 1)) {
+    throw new Error("治疗总周期必须大于 0 天。");
   }
 
   if (!Number.isInteger(input.trayIntervalDays) || input.trayIntervalDays < 1 || input.trayIntervalDays > 30) {

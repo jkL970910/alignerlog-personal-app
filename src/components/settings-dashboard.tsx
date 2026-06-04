@@ -1,5 +1,6 @@
 "use client";
 
+import { addDays, format, isValid, parseISO, subDays } from "date-fns";
 import { FormEvent, useEffect, useState } from "react";
 import { Download, Loader2, Save, Sparkles } from "lucide-react";
 
@@ -21,6 +22,8 @@ const defaultImport: ImportState = {
   name: "第一阶段",
   currentTrayNumber: 1,
   totalTrays: 20,
+  overallTotalTrays: 20,
+  overallTreatmentDays: 140,
   trayIntervalDays: 7,
   dailyGoalMinutes: 1320,
   currentTrayStartDate: new Date().toISOString().slice(0, 10),
@@ -142,6 +145,21 @@ export function SettingsDashboard() {
     setImportPreview(null);
   }
 
+  function updateImportSchedule(patch: Partial<ImportState>) {
+    const next = { ...importDraft, ...patch };
+    const currentStartTouched = Object.prototype.hasOwnProperty.call(patch, "currentTrayStartDate");
+    const nextChangeTouched = Object.prototype.hasOwnProperty.call(patch, "nextChangeDate");
+    const intervalTouched = Object.prototype.hasOwnProperty.call(patch, "trayIntervalDays");
+
+    if ((currentStartTouched || intervalTouched) && next.currentTrayStartDate && next.trayIntervalDays > 0) {
+      next.nextChangeDate = addDaysKey(next.currentTrayStartDate, next.trayIntervalDays);
+    } else if (nextChangeTouched && next.nextChangeDate && next.trayIntervalDays > 0) {
+      next.currentTrayStartDate = subDaysKey(next.nextChangeDate, next.trayIntervalDays - 1);
+    }
+
+    updateImportDraft(next);
+  }
+
   if (error) {
     return <SetupWarning message={error} />;
   }
@@ -228,7 +246,7 @@ export function SettingsDashboard() {
           <div>
             <h2 className="text-lg font-semibold text-ink">导入既有牙套计划</h2>
             <p className="mt-1 text-sm leading-6 text-ink/60">
-              已经开始佩戴也可以导入。系统会生成计划日程，不会伪造过去的真实打卡记录。
+              这是一次性导入，不需要每周手动重填。填入当前副或下次换期作为锚点后，系统会按每副天数自动生成日程。
             </p>
           </div>
         </div>
@@ -283,22 +301,31 @@ export function SettingsDashboard() {
           </label>
 
           <ImportField label="当前第几副" min={1} value={importDraft.currentTrayNumber} onChange={(value) => updateImportDraft({ ...importDraft, currentTrayNumber: value })} />
-          <ImportField label="当前阶段总副数" min={1} value={importDraft.totalTrays} onChange={(value) => updateImportDraft({ ...importDraft, totalTrays: value })} />
-          <ImportField label="每副佩戴天数" min={1} value={importDraft.trayIntervalDays} onChange={(value) => updateImportDraft({ ...importDraft, trayIntervalDays: value })} />
+          <ImportField label="当前阶段总副数" helper="例如这一盒/这一阶段共有 20 副；未来精修可之后再加。" min={1} value={importDraft.totalTrays} onChange={(value) => updateImportDraft({ ...importDraft, totalTrays: value, overallTotalTrays: Math.max(importDraft.overallTotalTrays ?? value, value) })} />
+          <ImportField label="全程预估总副数" helper="如果医生给了整体副数就填；不知道可先等于当前阶段。" min={1} value={importDraft.overallTotalTrays ?? importDraft.totalTrays} onChange={(value) => updateImportDraft({ ...importDraft, overallTotalTrays: value })} />
+          <ImportField label="治疗总周期天数" helper="可选。比如 20 副 x 7 天 = 140 天。" min={1} value={importDraft.overallTreatmentDays ?? importDraft.totalTrays * importDraft.trayIntervalDays} onChange={(value) => updateImportDraft({ ...importDraft, overallTreatmentDays: value })} />
+          <ImportField label="每副佩戴天数" helper="医生要求的换副周期，常见 7/10/14 天。" min={1} value={importDraft.trayIntervalDays} onChange={(value) => updateImportSchedule({ trayIntervalDays: value, overallTreatmentDays: (importDraft.overallTotalTrays ?? importDraft.totalTrays) * value })} />
           <ImportField label="每日目标分钟" min={60} value={importDraft.dailyGoalMinutes} onChange={(value) => updateImportDraft({ ...importDraft, dailyGoalMinutes: value })} />
+
+          <p className="col-span-2 rounded-md bg-mist/60 p-3 text-xs leading-5 text-ink/60">
+            计划锚点只用于导入时定位当前进度：优先填“当前副开始日期”。如果你只记得下次换牙套日期，也可以填下次换期，系统会反推当前副开始日。之后每周换期由系统自动计算。
+          </p>
 
           <DateField
             label="当前副开始日期"
+            helper="推荐填写：这副牙套从哪天开始戴。"
             value={importDraft.currentTrayStartDate ?? ""}
-            onChange={(value) => updateImportDraft({ ...importDraft, currentTrayStartDate: value || undefined, nextChangeDate: undefined })}
+            onChange={(value) => updateImportSchedule({ currentTrayStartDate: value || undefined })}
           />
           <DateField
-            label="下次换牙套日期"
+            label="下次计划换期"
+            helper="会根据当前副开始日 + 每副天数自动填；也可手动覆盖。"
             value={importDraft.nextChangeDate ?? ""}
-            onChange={(value) => updateImportDraft({ ...importDraft, nextChangeDate: value || undefined, currentTrayStartDate: value ? undefined : importDraft.currentTrayStartDate })}
+            onChange={(value) => updateImportSchedule({ nextChangeDate: value || undefined })}
           />
           <DateField
-            label="治疗开始日期"
+            label="整体治疗开始日"
+            helper="可选。用于估算全程进度；不知道可不填。"
             value={importDraft.startDate ?? ""}
             onChange={(value) => updateImportDraft({ ...importDraft, startDate: value || undefined })}
           />
@@ -431,6 +458,7 @@ function Field(props: {
 
 function ImportField(props: {
   label: string;
+  helper?: string;
   value: number;
   min: number;
   onChange: (value: number) => void;
@@ -449,12 +477,14 @@ function ImportField(props: {
         type="number"
         value={props.value}
       />
+      {props.helper ? <span className="mt-1 block text-xs leading-5 text-ink/50">{props.helper}</span> : null}
     </label>
   );
 }
 
 function DateField(props: {
   label: string;
+  helper?: string;
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -470,6 +500,7 @@ function DateField(props: {
         type="date"
         value={props.value}
       />
+      {props.helper ? <span className="mt-1 block text-xs leading-5 text-ink/50">{props.helper}</span> : null}
     </label>
   );
 }
@@ -482,6 +513,8 @@ function ImportPreviewCard({ preview }: { preview: TreatmentPlanImportPreview })
       <h3 className="font-semibold text-ink">计划预览</h3>
       <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
         <PreviewMetric label="当前牙套" value={`第 ${preview.progress.currentTrayNumber} / ${preview.progress.totalTrays ?? "?"} 副`} />
+        <PreviewMetric label="全程副数" value={preview.progress.overallTotalTrays ? `${preview.progress.overallTotalTrays} 副` : "未知"} />
+        <PreviewMetric label="总周期" value={preview.progress.overallTreatmentDays ? `${preview.progress.overallTreatmentDays} 天` : "未知"} />
         <PreviewMetric label="每副周期" value={`${preview.progress.trayIntervalDays} 天`} />
         <PreviewMetric label="下次换期" value={preview.progress.nextChangeDate ?? "暂停/待医生确认"} />
         <PreviewMetric label="预计结束" value={preview.progress.estimatedSeriesEndDate ?? "未知"} />
@@ -516,10 +549,24 @@ function normalizeImportDraft(draft: ImportState): TreatmentPlanImportInput {
   return {
     ...draft,
     name: draft.name.trim(),
+    overallTotalTrays: draft.overallTotalTrays || undefined,
+    overallTreatmentDays: draft.overallTreatmentDays || undefined,
     currentTrayStartDate: draft.currentTrayStartDate || undefined,
     nextChangeDate: draft.nextChangeDate || undefined,
     startDate: draft.startDate || undefined,
     appointmentDate: draft.appointmentDate || undefined,
     clinicianNotes: draft.clinicianNotes?.trim() || undefined
   };
+}
+
+function addDaysKey(dateKey: string, days: number) {
+  const date = parseISO(dateKey);
+
+  return isValid(date) ? format(addDays(date, days), "yyyy-MM-dd") : undefined;
+}
+
+function subDaysKey(dateKey: string, days: number) {
+  const date = parseISO(dateKey);
+
+  return isValid(date) ? format(subDays(date, days), "yyyy-MM-dd") : undefined;
 }

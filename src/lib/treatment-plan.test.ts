@@ -10,6 +10,8 @@ describe("buildTreatmentPlanImportPreview", () => {
       name: "第一阶段",
       currentTrayNumber: 3,
       totalTrays: 5,
+      overallTotalTrays: 12,
+      overallTreatmentDays: 84,
       trayIntervalDays: 7,
       dailyGoalMinutes: 1320,
       currentTrayStartDate: "2026-06-01"
@@ -17,6 +19,8 @@ describe("buildTreatmentPlanImportPreview", () => {
 
     expect(preview.series.startDate).toBe("2026-05-18");
     expect(preview.series.nextChangeDate).toBe("2026-06-08");
+    expect(preview.series.overallTotalTrays).toBe(12);
+    expect(preview.progress.overallTreatmentDays).toBe(84);
     expect(preview.progress.currentTrayDay).toBe(4);
     expect(preview.progress.traysRemaining).toBe(2);
     expect(preview.trays.map((tray) => tray.status)).toEqual([
@@ -42,6 +46,7 @@ describe("buildTreatmentPlanImportPreview", () => {
 
     expect(preview.series.currentTrayStartDate).toBe("2026-06-01");
     expect(preview.progress.daysUntilNextChange).toBe(6);
+    expect(preview.progress.overallTotalTrays).toBe(20);
   });
 
   it("pauses change countdown for holding status", () => {

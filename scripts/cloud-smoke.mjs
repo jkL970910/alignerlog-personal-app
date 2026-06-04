@@ -91,6 +91,8 @@ if (password) {
     name: confirmImport ? "Smoke Confirm" : "Smoke Preview",
     currentTrayNumber: 1,
     totalTrays: 3,
+    overallTotalTrays: 3,
+    overallTreatmentDays: 21,
     trayIntervalDays: 7,
     dailyGoalMinutes: 1320,
     currentTrayStartDate: today

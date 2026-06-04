@@ -109,6 +109,8 @@ export type TreatmentSeries = {
   startDate: string;
   currentTrayNumber: number;
   totalTrays: number | null;
+  overallTotalTrays: number | null;
+  overallTreatmentDays: number | null;
   trayIntervalDays: number;
   dailyGoalMinutes: number;
   currentTrayStartDate: string;
@@ -143,6 +145,8 @@ export type TreatmentPlanImportInput = {
   startDate?: string;
   currentTrayNumber: number;
   totalTrays: number;
+  overallTotalTrays?: number;
+  overallTreatmentDays?: number;
   trayIntervalDays: number;
   dailyGoalMinutes: number;
   currentTrayStartDate?: string;
@@ -162,6 +166,8 @@ export type PlanProgress = {
   status: TreatmentStatus;
   currentTrayNumber: number;
   totalTrays: number | null;
+  overallTotalTrays: number | null;
+  overallTreatmentDays: number | null;
   currentTrayDay: number | null;
   trayIntervalDays: number;
   daysUntilNextChange: number | null;
