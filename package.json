@@ -11,6 +11,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "cloud:smoke": "node scripts/cloud-smoke.mjs",
+    "cron:deploy": "npx wrangler deploy",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
   },

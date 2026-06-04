@@ -1,0 +1,9 @@
+name = "loo-dental-reminder-cron"
+main = "workers/reminder-cron.ts"
+compatibility_date = "2026-06-04"
+
+[vars]
+REMINDER_WORKER_URL = "https://alignerlog-personal-app.vercel.app/api/workers/reminders/run"
+
+[triggers]
+crons = ["*/5 * * * *"]
