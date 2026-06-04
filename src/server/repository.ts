@@ -1,13 +1,54 @@
-import { and, asc, desc, eq, gte, gt, isNull, lte, lt, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
-import { dailyNotes, offTraySessions, reminderSettings, treatmentPlans, wearStates } from "@/lib/db/schema";
+import { dailyNotes, offTraySessions, reminderSettings, treatmentPlans, users, wearStates } from "@/lib/db/schema";
 import { dayBounds, todayKey } from "@/lib/dates";
 import type { OffTrayReason, ReminderSettings, TreatmentPlan } from "@/lib/types";
 
-import { mapDailyNote, mapOffTraySession, mapReminderSettings, mapTreatmentPlan, mapWearState } from "./mappers";
+import { mapDailyNote, mapOffTraySession, mapReminderSettings, mapTreatmentPlan, mapUser, mapWearState } from "./mappers";
 
 const defaultGoalMinutes = 22 * 60;
+
+export async function getUserByEmail(email: string) {
+  const db = getDb();
+  const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+
+  return user ?? null;
+}
+
+export async function createUser(email: string, passwordHash: string) {
+  const db = getDb();
+  const now = new Date();
+  const [created] = await db.insert(users).values({
+    email: email.toLowerCase(),
+    passwordHash,
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+
+  return mapUser(created);
+}
+
+export async function createUserWithId(userId: string, email: string, passwordHash: string) {
+  const db = getDb();
+  const now = new Date();
+  const [created] = await db.insert(users).values({
+    id: userId,
+    email: email.toLowerCase(),
+    passwordHash,
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+
+  return mapUser(created);
+}
+
+export async function countUsers() {
+  const db = getDb();
+  const [row] = await db.select({ value: count() }).from(users);
+
+  return row?.value ?? 0;
+}
 
 export async function getOrCreateTreatmentPlan(userId: string) {
   const db = getDb();

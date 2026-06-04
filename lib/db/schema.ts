@@ -1,4 +1,4 @@
-import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, pgEnum, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const offTrayReasonEnum = pgEnum("off_tray_reason", [
@@ -14,6 +14,20 @@ export const reminderStatusEnum = pgEnum("reminder_status", [
   "sent",
   "cancelled"
 ]);
+
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    email: varchar("email", { length: 255 }).notNull(),
+    passwordHash: text("password_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    emailIdx: uniqueIndex("users_email_idx").on(table.email)
+  })
+);
 
 export const treatmentPlans = pgTable(
   "treatment_plans",

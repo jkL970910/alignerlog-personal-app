@@ -4,6 +4,13 @@ export type OffTrayReason = "meal" | "drink" | "brushing" | "other";
 
 export type ReminderStatus = "none" | "scheduled" | "sent" | "cancelled";
 
+export type UserAccount = {
+  id: string;
+  email: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type TreatmentPlan = {
   id: string;
   userId: string;

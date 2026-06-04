@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 import { cookies } from "next/headers";
 
@@ -38,6 +38,29 @@ function constantTimeEqual(left: string, right: string) {
   const rightBuffer = Buffer.from(right);
 
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+export function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("base64url");
+  const hash = scryptSync(password, salt, 64).toString("base64url");
+
+  return `scrypt$${salt}$${hash}`;
+}
+
+export function verifyPassword(password: string, storedHash: string) {
+  const [algorithm, salt, hash] = storedHash.split("$");
+
+  if (algorithm !== "scrypt" || !salt || !hash) {
+    return false;
+  }
+
+  const candidate = scryptSync(password, salt, 64).toString("base64url");
+
+  return constantTimeEqual(candidate, hash);
 }
 
 export function createSessionToken(userId = getConfiguredUserId()) {

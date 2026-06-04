@@ -29,6 +29,7 @@ async function expectOk(path, init) {
 }
 
 await expectStatus("/login", undefined, 200);
+await expectStatus("/register", undefined, 200);
 await expectStatus("/today", { redirect: "manual" }, 307);
 await expectStatus("/api/snapshot", undefined, 401);
 await expectStatus("/manifest.webmanifest", undefined, 200);

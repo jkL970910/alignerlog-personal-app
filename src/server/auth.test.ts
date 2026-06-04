@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createSessionToken, verifyLoginPassword, verifySessionToken } from "./auth";
+import { createSessionToken, hashPassword, verifyLoginPassword, verifyPassword, verifySessionToken } from "./auth";
 
 const originalEnv = { ...process.env };
 
@@ -38,5 +38,13 @@ describe("personal auth", () => {
 
     expect(verifyLoginPassword("personal-password")).toBe(true);
     expect(verifyLoginPassword("wrong-password")).toBe(false);
+  });
+
+  it("hashes and verifies registered account passwords", () => {
+    const hash = hashPassword("account-password");
+
+    expect(hash).toMatch(/^scrypt\$/u);
+    expect(verifyPassword("account-password", hash)).toBe(true);
+    expect(verifyPassword("wrong-password", hash)).toBe(false);
   });
 });

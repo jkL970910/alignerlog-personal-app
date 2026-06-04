@@ -1,12 +1,22 @@
-import type { DailyNote, OffTraySession, ReminderSettings, TreatmentPlan, WearState } from "@/lib/types";
+import type { DailyNote, OffTraySession, ReminderSettings, TreatmentPlan, UserAccount, WearState } from "@/lib/types";
 
-import type { dailyNotes, offTraySessions, reminderSettings, treatmentPlans, wearStates } from "@/lib/db/schema";
+import type { dailyNotes, offTraySessions, reminderSettings, treatmentPlans, users, wearStates } from "@/lib/db/schema";
 
+type UserRow = typeof users.$inferSelect;
 type TreatmentPlanRow = typeof treatmentPlans.$inferSelect;
 type WearStateRow = typeof wearStates.$inferSelect;
 type OffTraySessionRow = typeof offTraySessions.$inferSelect;
 type DailyNoteRow = typeof dailyNotes.$inferSelect;
 type ReminderSettingsRow = typeof reminderSettings.$inferSelect;
+
+export function mapUser(row: UserRow): UserAccount {
+  return {
+    id: row.id,
+    email: row.email,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
 
 export function mapTreatmentPlan(row: TreatmentPlanRow): TreatmentPlan {
   return {

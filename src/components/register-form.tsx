@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, use, useState } from "react";
 import Link from "next/link";
-import { Loader2, LockKeyhole } from "lucide-react";
+import { FormEvent, use, useState } from "react";
+import { Loader2, UserPlus } from "lucide-react";
 
-export function LoginForm({
+export function RegisterForm({
   nextPathPromise
 }: {
   nextPathPromise?: Promise<{ next?: string }>;
@@ -22,7 +22,7 @@ export function LoginForm({
     setError(null);
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
@@ -30,12 +30,12 @@ export function LoginForm({
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload.error ?? "Could not sign in.");
+        throw new Error(payload.error ?? "Could not create account.");
       }
 
       window.location.assign(nextPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign in.");
+      setError(err instanceof Error ? err.message : "Could not create account.");
     } finally {
       setPending(false);
     }
@@ -45,22 +45,20 @@ export function LoginForm({
     <main className="flex min-h-dvh items-center justify-center px-5 py-10">
       <form className="w-full max-w-sm rounded-md border border-ink/10 bg-white p-5 shadow-soft" onSubmit={submit}>
         <div className="flex h-12 w-12 items-center justify-center rounded-md bg-mist text-sage">
-          <LockKeyhole className="h-6 w-6" />
+          <UserPlus className="h-6 w-6" />
         </div>
-        <h1 className="mt-5 text-3xl font-semibold text-ink">AlignerLog</h1>
+        <h1 className="mt-5 text-3xl font-semibold text-ink">Create account</h1>
         <p className="mt-2 text-sm leading-6 text-ink/60">
-          Sign in to your personal aligner tracker.
+          Start a private AlignerLog profile for your wear-time data.
         </p>
 
-        <label className="mt-6 block text-sm font-medium text-ink/70" htmlFor="password">
+        <label className="mt-6 block text-sm font-medium text-ink/70" htmlFor="email">
           Email
           <input
             autoComplete="email"
-            autoFocus
             className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
             id="email"
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
             type="email"
             value={email}
           />
@@ -69,7 +67,7 @@ export function LoginForm({
         <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="password">
           Password
           <input
-            autoComplete="current-password"
+            autoComplete="new-password"
             className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
             id="password"
             onChange={(event) => setPassword(event.target.value)}
@@ -87,14 +85,14 @@ export function LoginForm({
           disabled={pending}
           type="submit"
         >
-          {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <LockKeyhole className="h-5 w-5" />}
-          Sign in
+          {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserPlus className="h-5 w-5" />}
+          Create account
         </button>
 
         <p className="mt-4 text-center text-sm text-ink/60">
-          New to AlignerLog?{" "}
-          <Link className="font-semibold text-ink" href={`/register?next=${encodeURIComponent(nextPath)}`}>
-            Create an account
+          Already have an account?{" "}
+          <Link className="font-semibold text-ink" href={`/login?next=${encodeURIComponent(nextPath)}`}>
+            Sign in
           </Link>
         </p>
       </form>
