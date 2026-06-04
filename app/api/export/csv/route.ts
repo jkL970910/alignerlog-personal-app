@@ -2,15 +2,15 @@ import { subDays } from "date-fns";
 
 import { todayKey, toDateKey } from "@/lib/dates";
 import { calculateDailySummaries } from "@/lib/summaries";
+import { requireCurrentUserId } from "@/server/auth";
 import { apiError } from "@/server/http";
-import { getPersonalUserId } from "@/server/personal-user";
 import { getOrCreateTreatmentPlan, listSessionsForRange } from "@/server/repository";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    const userId = getPersonalUserId();
+    const userId = await requireCurrentUserId();
     const url = new URL(request.url);
     const now = new Date();
     const endDate = url.searchParams.get("end") ?? todayKey(now);

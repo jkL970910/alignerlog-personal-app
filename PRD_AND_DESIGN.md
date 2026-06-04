@@ -2,6 +2,26 @@
 
 ## 1. Project Overview
 
+> Implementation note: the initial PRD was local-first and did not require
+> login. The active implementation direction is now a cloud-first personal PWA:
+> Vercel-hosted Next.js, Postgres via `DATABASE_URL`, single-user password
+> login, and iPhone usage through the deployed mobile URL.
+
+### Current Cloud Decision Overrides
+
+The historical sections below are preserved as the original product baseline,
+but implementation should follow these current decisions when they conflict:
+
+* Use Vercel + managed Postgres as the first deploy target.
+* Treat the deployed Vercel URL as the mobile PWA URL for iPhone Safari and
+  Home Screen install.
+* Require password login before any page or API can access personal tracking
+  data.
+* Store app data in Postgres, not IndexedDB/Dexie, for the active cloud-first
+  version.
+* Defer Cloudflare Workers, cron, and Web Push until reminder delivery becomes
+  the active feature slice.
+
 ### 1.1 Project Name
 
 **AlignerLog**

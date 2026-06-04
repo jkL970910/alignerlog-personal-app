@@ -1,5 +1,5 @@
+import { requireCurrentUserId } from "@/server/auth";
 import { apiError } from "@/server/http";
-import { getPersonalUserId } from "@/server/personal-user";
 import {
   getOrCreateReminderSettings,
   getOrCreateTreatmentPlan,
@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const userId = getPersonalUserId();
+    const userId = await requireCurrentUserId();
     const payload = {
       exportedAt: new Date().toISOString(),
       treatmentPlan: await getOrCreateTreatmentPlan(userId),

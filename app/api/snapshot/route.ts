@@ -2,8 +2,8 @@ import { subDays } from "date-fns";
 
 import { todayKey, toDateKey } from "@/lib/dates";
 import { calculateDailySummary } from "@/lib/summaries";
+import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
-import { getPersonalUserId } from "@/server/personal-user";
 import {
   getActiveSession,
   getOrCreateReminderSettings,
@@ -16,7 +16,7 @@ export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const userId = getPersonalUserId();
+    const userId = await requireCurrentUserId();
     const now = new Date();
     const date = todayKey(now);
     const treatmentPlan = await getOrCreateTreatmentPlan(userId);

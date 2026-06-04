@@ -1,8 +1,8 @@
 import { todayKey, toDateKey } from "@/lib/dates";
 import { calculateDailySummary } from "@/lib/summaries";
 import type { OffTrayReason } from "@/lib/types";
+import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
-import { getPersonalUserId } from "@/server/personal-user";
 import {
   endActiveOffTraySession,
   getActiveSession,
@@ -21,7 +21,7 @@ type ToggleRequest = {
 
 export async function POST(request: Request) {
   try {
-    const userId = getPersonalUserId();
+    const userId = await requireCurrentUserId();
     const body = await request.json() as ToggleRequest;
     const result = body.action === "start"
       ? await startOffTraySession(userId, body.reason)

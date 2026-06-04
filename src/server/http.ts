@@ -6,7 +6,7 @@ export function apiJson<T>(data: T, init?: ResponseInit) {
 
 export function apiError(error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected server error.";
-  const status = message.includes("DATABASE_URL") ? 503 : 500;
+  const status = message === "Unauthorized." ? 401 : message.includes("DATABASE_URL") ? 503 : 500;
 
   return NextResponse.json({ error: message }, { status });
 }

@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "cloud:build": "npm run build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "lint": "next lint",
     "test": "vitest run",
+    "cloud:smoke": "node scripts/cloud-smoke.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
   },

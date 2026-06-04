@@ -1,5 +1,5 @@
 import { apiError, apiJson } from "@/server/http";
-import { getPersonalUserId } from "@/server/personal-user";
+import { requireCurrentUserId } from "@/server/auth";
 import {
   getOrCreateReminderSettings,
   getOrCreateTreatmentPlan,
@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const userId = getPersonalUserId();
+    const userId = await requireCurrentUserId();
 
     return apiJson({
       treatmentPlan: await getOrCreateTreatmentPlan(userId),
@@ -24,7 +24,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const userId = getPersonalUserId();
+    const userId = await requireCurrentUserId();
     const body = await request.json() as {
       treatmentPlan?: Parameters<typeof updateTreatmentPlan>[1];
       reminderSettings?: Parameters<typeof updateReminderSettings>[1];
