@@ -3,12 +3,12 @@ import { z } from "zod";
 import { buildTreatmentPlanImportPreview } from "@/lib/treatment-plan";
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
-import { saveTreatmentPlanImport } from "@/server/repository";
+import { getActiveTreatmentSeries, saveTreatmentPlanImport, updateActiveTreatmentSeries } from "@/server/repository";
 
 export const runtime = "nodejs";
 
 const importSchema = z.object({
-  mode: z.enum(["preview", "confirm"]).default("preview"),
+  mode: z.enum(["preview", "confirm", "update", "reset"]).default("preview"),
   plan: z.object({
     status: z.enum(["not_started", "active", "holding", "waiting_refinement", "retainer"]),
     seriesType: z.enum(["active", "refinement", "holding", "retainer"]),
@@ -35,6 +35,16 @@ export async function POST(request: Request) {
 
     if (parsed.mode === "preview") {
       return apiJson(preview);
+    }
+
+    const activeSeries = await getActiveTreatmentSeries(userId);
+
+    if (parsed.mode === "update") {
+      return apiJson(await updateActiveTreatmentSeries(userId, preview));
+    }
+
+    if (parsed.mode === "confirm" && activeSeries) {
+      throw new Error("已有牙套计划。请使用“修改当前计划”，或显式选择“重置计划”。");
     }
 
     return apiJson(await saveTreatmentPlanImport(userId, preview));

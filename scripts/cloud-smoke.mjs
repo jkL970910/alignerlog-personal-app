@@ -135,7 +135,7 @@ if (smokePassword) {
       method: "POST",
       headers: { "Content-Type": "application/json", cookie },
       body: JSON.stringify({
-        mode: "confirm",
+        mode: "reset",
         plan: importPayload
       })
     });

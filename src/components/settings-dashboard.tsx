@@ -39,6 +39,28 @@ function createDefaultImport(mode: PlanSetupMode = "import", dailyGoalMinutes = 
   };
 }
 
+function createImportFromSeries(series: TreatmentSeries, dailyGoalMinutes: number): ImportState {
+  const base = createDefaultImport("import", dailyGoalMinutes);
+
+  return {
+    ...base,
+    status: series.status,
+    seriesType: series.seriesType,
+    name: series.name,
+    startDate: series.startDate,
+    currentTrayNumber: series.currentTrayNumber,
+    totalTrays: series.totalTrays ?? base.totalTrays,
+    overallTotalTrays: series.overallTotalTrays ?? series.totalTrays ?? base.totalTrays,
+    overallTreatmentDays: series.overallTreatmentDays ?? undefined,
+    trayIntervalDays: series.trayIntervalDays,
+    dailyGoalMinutes: series.dailyGoalMinutes,
+    currentTrayStartDate: series.currentTrayStartDate,
+    nextChangeDate: series.nextChangeDate ?? undefined,
+    appointmentDate: series.appointmentDate ?? undefined,
+    clinicianNotes: series.clinicianNotes
+  };
+}
+
 export function SettingsDashboard() {
   const [settings, setSettings] = useState<SettingsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +71,8 @@ export function SettingsDashboard() {
   const [importDraftInitialized, setImportDraftInitialized] = useState(false);
   const [planSetupMode, setPlanSetupMode] = useState<PlanSetupMode | null>(null);
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
+  const [editingExistingPlan, setEditingExistingPlan] = useState(false);
+  const [resetConfirmArmed, setResetConfirmArmed] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -73,29 +97,15 @@ export function SettingsDashboard() {
     const base = createDefaultImport("import", settings.treatmentPlan.dailyGoalMinutes);
 
     if (activeSeries) {
-      setImportDraft({
-        ...base,
-        status: activeSeries.status,
-        seriesType: activeSeries.seriesType,
-        name: activeSeries.name,
-        startDate: activeSeries.startDate,
-        currentTrayNumber: activeSeries.currentTrayNumber,
-        totalTrays: activeSeries.totalTrays ?? base.totalTrays,
-        overallTotalTrays: activeSeries.overallTotalTrays ?? activeSeries.totalTrays ?? base.totalTrays,
-        overallTreatmentDays: activeSeries.overallTreatmentDays ?? undefined,
-        trayIntervalDays: activeSeries.trayIntervalDays,
-        dailyGoalMinutes: activeSeries.dailyGoalMinutes,
-        currentTrayStartDate: activeSeries.currentTrayStartDate,
-        nextChangeDate: activeSeries.nextChangeDate ?? undefined,
-        appointmentDate: activeSeries.appointmentDate ?? undefined,
-        clinicianNotes: activeSeries.clinicianNotes
-      });
+      setImportDraft(createImportFromSeries(activeSeries, settings.treatmentPlan.dailyGoalMinutes));
       setPlanSetupMode(activeSeries.currentTrayNumber > 1 ? "import" : "new");
       setPlanEditorOpen(false);
+      setEditingExistingPlan(false);
     } else {
       setImportDraft(base);
       setPlanSetupMode(null);
       setPlanEditorOpen(false);
+      setEditingExistingPlan(false);
     }
     setImportDraftInitialized(true);
   }, [importDraftInitialized, settings]);
@@ -153,15 +163,18 @@ export function SettingsDashboard() {
     }
   }
 
-  async function confirmImport() {
+  async function savePlan() {
     setImportPending(true);
     setError(null);
 
     try {
+      const mode = settings?.activeSeries
+        ? editingExistingPlan ? "update" : "reset"
+        : "confirm";
       const response = await fetch("/api/treatment-plan/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "confirm", plan: normalizeImportDraft(importDraft) })
+        body: JSON.stringify({ mode, plan: normalizeImportDraft(importDraft) })
       });
       const payload = await response.json();
 
@@ -184,6 +197,8 @@ export function SettingsDashboard() {
         }
       } : settings);
       setPlanEditorOpen(false);
+      setEditingExistingPlan(false);
+      setResetConfirmArmed(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法保存牙套计划。");
     } finally {
@@ -194,8 +209,28 @@ export function SettingsDashboard() {
   function choosePlanSetupMode(mode: PlanSetupMode) {
     setPlanSetupMode(mode);
     setPlanEditorOpen(true);
+    setEditingExistingPlan(false);
+    setResetConfirmArmed(false);
     setImportPreview(null);
     setImportDraft(createDefaultImport(mode, settings?.treatmentPlan.dailyGoalMinutes ?? 1320));
+  }
+
+  function editCurrentPlan() {
+    if (settings?.activeSeries) {
+      setImportDraft(createImportFromSeries(settings.activeSeries, settings.treatmentPlan.dailyGoalMinutes));
+      setPlanSetupMode(settings.activeSeries.currentTrayNumber > 1 ? "import" : "new");
+    } else {
+      setPlanSetupMode(planSetupMode ?? "import");
+    }
+    setPlanEditorOpen(true);
+    setEditingExistingPlan(true);
+    setResetConfirmArmed(false);
+    setImportPreview(null);
+  }
+
+  function armPlanReset(mode: PlanSetupMode) {
+    choosePlanSetupMode(mode);
+    setResetConfirmArmed(true);
   }
 
   function updateImportDraft(next: ImportState) {
@@ -232,9 +267,9 @@ export function SettingsDashboard() {
 
   const hasRealPlan = Boolean(settings.activeSeries);
   const progress = settings.planProgress;
-  const planCtaTitle = hasRealPlan ? "调整牙套计划" : "设置你的牙套计划";
   const isNewPlanMode = planSetupMode === "new";
   const showPlanEditor = Boolean(planEditorOpen && planSetupMode);
+  const planEditorTitle = hasRealPlan && editingExistingPlan ? "修改当前计划" : isNewPlanMode ? "开始新计划" : "导入已进行计划";
 
   return (
     <form className="space-y-4" onSubmit={save}>
@@ -282,12 +317,16 @@ export function SettingsDashboard() {
               <button
                 className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
                 onClick={() => {
-                  setPlanSetupMode(planSetupMode ?? (settings.activeSeries?.currentTrayNumber && settings.activeSeries.currentTrayNumber > 1 ? "import" : "new"));
-                  setPlanEditorOpen((open) => !open);
+                  if (planEditorOpen && editingExistingPlan) {
+                    setPlanEditorOpen(false);
+                    setEditingExistingPlan(false);
+                  } else {
+                    editCurrentPlan();
+                  }
                 }}
                 type="button"
               >
-                {planEditorOpen ? "收起" : "调整"}
+                {planEditorOpen && editingExistingPlan ? "收起" : "修改"}
               </button>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
@@ -308,42 +347,72 @@ export function SettingsDashboard() {
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <button
-            className={`min-h-12 rounded-md border px-3 text-sm font-semibold ${planSetupMode === "new" ? "border-ink bg-ink text-white" : "border-ink/10 text-ink"}`}
-            onClick={() => choosePlanSetupMode("new")}
-            type="button"
-          >
-            开始新计划
-          </button>
-          <button
-            className={`min-h-12 rounded-md border px-3 text-sm font-semibold ${planSetupMode === "import" ? "border-ink bg-ink text-white" : "border-ink/10 text-ink"}`}
-            onClick={() => choosePlanSetupMode("import")}
-            type="button"
-          >
-            导入已进行计划
-          </button>
-        </div>
-
-        {!planEditorOpen && hasRealPlan ? (
-          <button
-            className="mt-3 min-h-12 w-full rounded-md border border-ink/10 px-4 text-sm font-semibold text-ink"
-            onClick={() => {
-              setPlanSetupMode(planSetupMode ?? "import");
-              setPlanEditorOpen(true);
-            }}
-            type="button"
-          >
-            {planCtaTitle}
-          </button>
-        ) : null}
+        {hasRealPlan ? (
+          <div className="mt-4 space-y-3">
+            {!planEditorOpen ? (
+              <button
+                className="min-h-12 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white"
+                onClick={editCurrentPlan}
+                type="button"
+              >
+                修改当前计划
+              </button>
+            ) : null}
+            <div className="rounded-md border border-amber/20 bg-mist/40 p-3">
+              <p className="text-xs leading-5 text-ink/60">
+                重新导入会替换当前 active 计划，只适合医生重新给了完整新计划、或你确认要重置进度时使用。
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  className="min-h-11 rounded-md border border-ink/10 px-3 text-xs font-semibold text-ink"
+                  onClick={() => armPlanReset("new")}
+                  type="button"
+                >
+                  重置为新计划
+                </button>
+                <button
+                  className="min-h-11 rounded-md border border-ink/10 px-3 text-xs font-semibold text-ink"
+                  onClick={() => armPlanReset("import")}
+                  type="button"
+                >
+                  重新导入计划
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              className={`min-h-12 rounded-md border px-3 text-sm font-semibold ${planSetupMode === "new" ? "border-ink bg-ink text-white" : "border-ink/10 text-ink"}`}
+              onClick={() => choosePlanSetupMode("new")}
+              type="button"
+            >
+              开始新计划
+            </button>
+            <button
+              className={`min-h-12 rounded-md border px-3 text-sm font-semibold ${planSetupMode === "import" ? "border-ink bg-ink text-white" : "border-ink/10 text-ink"}`}
+              onClick={() => choosePlanSetupMode("import")}
+              type="button"
+            >
+              导入已进行计划
+            </button>
+          </div>
+        )}
 
         {showPlanEditor ? (
           <>
             <div className="mt-4 rounded-md bg-mist/60 p-3 text-xs leading-5 text-ink/60">
-              {isNewPlanMode
-                ? "新计划适合还没开始或准备从第 1 副开始追踪的情况。填写医生给你的总副数、每副佩戴天数和计划开始日，系统会生成后续日程。"
-                : "导入已进行计划适合已经佩戴了一段时间的情况。填写当前第几副和当前副开始日期；如果只记得下次换牙套日期，系统会反推当前副开始日。这不是每周都要重填。"}
+              <p className="font-semibold text-ink">{planEditorTitle}</p>
+              <p className="mt-1">
+                {editingExistingPlan
+                  ? "这里会修改当前计划本身，并重新生成当前计划的日程，不会创建新的计划记录。"
+                  : isNewPlanMode
+                    ? "新计划适合还没开始或准备从第 1 副开始追踪的情况。填写医生给你的总副数、每副佩戴天数和计划开始日，系统会生成后续日程。"
+                    : "导入已进行计划适合已经佩戴了一段时间的情况。填写当前第几副和当前副开始日期；如果只记得下次换牙套日期，系统会反推当前副开始日。这不是每周都要重填。"}
+              </p>
+              {hasRealPlan && !editingExistingPlan ? (
+                <p className="mt-2 font-semibold text-amber">这是重置操作，会替换当前 active 计划。请先生成预览并确认无误。</p>
+              ) : null}
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
@@ -453,11 +522,17 @@ export function SettingsDashboard() {
               </button>
               <button
                 className="flex min-h-12 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
-                disabled={importPending || !importPreview}
-                onClick={confirmImport}
+                disabled={importPending || !importPreview || (hasRealPlan && !editingExistingPlan && !resetConfirmArmed)}
+                onClick={savePlan}
                 type="button"
               >
-                {importPending ? "处理中..." : "确认保存计划"}
+                {importPending
+                  ? "处理中..."
+                  : hasRealPlan && editingExistingPlan
+                    ? "确认修改当前计划"
+                    : hasRealPlan
+                      ? resetConfirmArmed ? "确认重置计划" : "需先选择重置"
+                      : "确认保存计划"}
               </button>
             </div>
 
