@@ -312,43 +312,58 @@ export async function saveTreatmentPlanImport(userId: string, preview: Treatment
   const db = getDb();
   const now = new Date();
 
-  await db.update(treatmentSeries)
-    .set({ isActive: false, updatedAt: now })
-    .where(and(eq(treatmentSeries.userId, userId), eq(treatmentSeries.isActive, true)));
+  return db.transaction(async (tx) => {
+    await tx.update(treatmentSeries)
+      .set({ isActive: false, updatedAt: now })
+      .where(and(eq(treatmentSeries.userId, userId), eq(treatmentSeries.isActive, true)));
 
-  const [series] = await db.insert(treatmentSeries).values({
-    userId,
-    ...preview.series,
-    createdAt: now,
-    updatedAt: now
-  }).returning();
+    const [series] = await tx.insert(treatmentSeries).values({
+      userId,
+      ...preview.series,
+      createdAt: now,
+      updatedAt: now
+    }).returning();
 
-  const plannedValues = preview.trays.map((tray: PlannedTrayDraft) => ({
-    userId,
-    seriesId: series.id,
-    ...tray,
-    createdAt: now,
-    updatedAt: now
-  }));
+    const plannedValues = preview.trays.map((tray: PlannedTrayDraft) => ({
+      userId,
+      seriesId: series.id,
+      ...tray,
+      createdAt: now,
+      updatedAt: now
+    }));
 
-  const insertedTrays = plannedValues.length
-    ? await db.insert(plannedTrays).values(plannedValues).returning()
-    : [];
+    const insertedTrays = plannedValues.length
+      ? await tx.insert(plannedTrays).values(plannedValues).returning()
+      : [];
 
-  await updateTreatmentPlan(userId, {
-    startDate: preview.series.startDate,
-    currentTrayNumber: preview.series.currentTrayNumber,
-    totalTrays: preview.series.totalTrays,
-    daysPerTray: preview.series.trayIntervalDays,
-    dailyGoalMinutes: preview.series.dailyGoalMinutes
+    await tx.insert(treatmentPlans).values({
+      userId,
+      startDate: preview.series.startDate,
+      currentTrayNumber: preview.series.currentTrayNumber,
+      totalTrays: preview.series.totalTrays,
+      daysPerTray: preview.series.trayIntervalDays,
+      dailyGoalMinutes: preview.series.dailyGoalMinutes,
+      createdAt: now,
+      updatedAt: now
+    }).onConflictDoUpdate({
+      target: treatmentPlans.userId,
+      set: {
+        startDate: preview.series.startDate,
+        currentTrayNumber: preview.series.currentTrayNumber,
+        totalTrays: preview.series.totalTrays,
+        daysPerTray: preview.series.trayIntervalDays,
+        dailyGoalMinutes: preview.series.dailyGoalMinutes,
+        updatedAt: now
+      }
+    });
+
+    return {
+      series: mapTreatmentSeries(series),
+      trays: insertedTrays.map(mapPlannedTray),
+      progress: preview.progress,
+      safetyNote: preview.safetyNote
+    };
   });
-
-  return {
-    series: mapTreatmentSeries(series),
-    trays: insertedTrays.map(mapPlannedTray),
-    progress: preview.progress,
-    safetyNote: preview.safetyNote
-  };
 }
 
 export async function listAllSessions(userId: string) {

@@ -1,5 +1,6 @@
 const appUrl = process.env.APP_BASE_URL;
 const password = process.env.ALIGNERLOG_LOGIN_PASSWORD;
+const confirmImport = process.env.ALIGNERLOG_SMOKE_CONFIRM_IMPORT === "true";
 
 if (!appUrl) {
   console.error("APP_BASE_URL is required.");
@@ -84,23 +85,42 @@ if (password) {
       }
     })
   });
+  const importPayload = {
+    status: "active",
+    seriesType: "active",
+    name: confirmImport ? "Smoke Confirm" : "Smoke Preview",
+    currentTrayNumber: 1,
+    totalTrays: 3,
+    trayIntervalDays: 7,
+    dailyGoalMinutes: 1320,
+    currentTrayStartDate: today
+  };
+
   await expectOk("/api/treatment-plan/import", {
     method: "POST",
     headers: { "Content-Type": "application/json", cookie },
     body: JSON.stringify({
       mode: "preview",
-      plan: {
-        status: "active",
-        seriesType: "active",
-        name: "Smoke Preview",
-        currentTrayNumber: 1,
-        totalTrays: 3,
-        trayIntervalDays: 7,
-        dailyGoalMinutes: 1320,
-        currentTrayStartDate: today
-      }
+      plan: importPayload
     })
   });
+
+  if (confirmImport) {
+    await expectOk("/api/treatment-plan/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", cookie },
+      body: JSON.stringify({
+        mode: "confirm",
+        plan: importPayload
+      })
+    });
+    const snapshot = await expectOk("/api/snapshot", { headers: { cookie } });
+    const snapshotPayload = await snapshot.json();
+    if (!snapshotPayload.planProgress || snapshotPayload.planProgress.currentTrayNumber !== 1) {
+      throw new Error("Confirmed treatment import did not appear in snapshot planProgress.");
+    }
+  }
+
   await expectOk("/api/export/json", { headers: { cookie } });
   await expectOk("/api/export/csv", { headers: { cookie } });
 }
