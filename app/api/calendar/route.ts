@@ -39,7 +39,8 @@ export async function GET(request: Request) {
             trayNumber: treatmentPlan.currentTrayNumber,
             sessionCount: 0,
             longestOffSessionMinutes: 0,
-            goalMet: false
+            goalMet: false,
+            hasData: false
           };
 
         return {
@@ -59,8 +60,9 @@ export async function GET(request: Request) {
 function hasCalendarData(summary: {
   offMinutes: number;
   sessionCount: number;
+  hasData: boolean;
 }, hasNote: boolean) {
-  return hasNote || summary.sessionCount > 0 || summary.offMinutes > 0;
+  return hasNote || summary.hasData || summary.sessionCount > 0 || summary.offMinutes > 0;
 }
 
 function getCalendarStatus(summary: {
@@ -69,6 +71,7 @@ function getCalendarStatus(summary: {
   wearMinutes: number;
   goalMinutes: number;
   goalMet: boolean;
+  hasData: boolean;
 }, hasNote: boolean) {
   if (!hasCalendarData(summary, hasNote)) {
     return "no_data";

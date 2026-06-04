@@ -54,7 +54,8 @@ export function HistoryDashboard() {
     );
   }
 
-  const chartData = data.summaries.slice(-14).map((summary) => ({
+  const recordedSummaries = data.summaries.filter((summary) => summary.hasData);
+  const chartData = recordedSummaries.slice(-14).map((summary) => ({
     date: summary.date.slice(5),
     hours: Number((summary.wearMinutes / 60).toFixed(1))
   }));
@@ -70,21 +71,27 @@ export function HistoryDashboard() {
 
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
         <h2 className="mb-4 text-base font-semibold text-ink">最近14天</h2>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 8, right: 0, left: -24, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dfe7e3" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6f8f7c" />
-              <YAxis tick={{ fontSize: 11 }} stroke="#6f8f7c" />
-              <Tooltip formatter={(value) => [`${value}小时`, "已佩戴"]} />
-              <Bar dataKey="hours" radius={[4, 4, 0, 0]} fill="#c7655d" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {chartData.length ? (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 8, right: 0, left: -24, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dfe7e3" />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6f8f7c" />
+                <YAxis tick={{ fontSize: 11 }} stroke="#6f8f7c" />
+                <Tooltip formatter={(value) => [`${value}小时`, "已佩戴"]} />
+                <Bar dataKey="hours" radius={[4, 4, 0, 0]} fill="#c7655d" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="rounded-md bg-mist/70 p-4 text-sm leading-6 text-ink/60">
+            暂无真实趋势。完成第一次取下/戴回记录后，这里才会生成佩戴柱状图和均值。
+          </p>
+        )}
       </section>
 
       <section className="space-y-2">
-        {data.summaries.slice(-10).reverse().map((summary) => (
+        {recordedSummaries.slice(-10).reverse().map((summary) => (
           <div className="flex items-center justify-between rounded-md border border-ink/10 bg-white/80 p-3" key={summary.date}>
             <div>
               <p className="font-medium text-ink">{summary.date}</p>
@@ -98,6 +105,11 @@ export function HistoryDashboard() {
             </div>
           </div>
         ))}
+        {!recordedSummaries.length ? (
+          <div className="rounded-md border border-ink/10 bg-white/80 p-3 text-sm text-ink/60">
+            还没有可回看的佩戴记录。
+          </div>
+        ) : null}
       </section>
     </div>
   );

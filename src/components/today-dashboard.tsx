@@ -89,7 +89,7 @@ export function TodayDashboard() {
   const { wearState, activeSession, todaySummary, treatmentPlan } = state.data;
   const planProgress = state.data.planProgress;
   const isWearing = wearState.isWearing;
-  const progress = Math.min(100, (todaySummary.wearMinutes / treatmentPlan.dailyGoalMinutes) * 100);
+  const progress = todaySummary.hasData ? Math.min(100, (todaySummary.wearMinutes / treatmentPlan.dailyGoalMinutes) * 100) : 0;
   const activeOutMinutes = activeSession
     ? Math.max(0, Math.floor((Date.now() - new Date(activeSession.startAt).getTime()) / 60000))
     : 0;
@@ -130,7 +130,7 @@ export function TodayDashboard() {
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-ink/60">今日目标进度</span>
-            <span className="font-semibold text-ink">{formatPercent(progress)}</span>
+            <span className="font-semibold text-ink">{todaySummary.hasData ? formatPercent(progress) : "暂无记录"}</span>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-mist">
             <div className="h-full rounded-full bg-mint transition-all" style={{ width: `${progress}%` }} />
@@ -151,11 +151,17 @@ export function TodayDashboard() {
       </section>
 
       <div className="grid grid-cols-2 gap-3">
-        <MetricCard label="今日已戴" value={formatMinutes(todaySummary.wearMinutes)} helper={`目标 ${formatMinutes(treatmentPlan.dailyGoalMinutes)}`} />
-        <MetricCard label={isWearing ? "还差" : "已取下"} value={isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes)} />
+        <MetricCard label="今日已戴" value={todaySummary.hasData ? formatMinutes(todaySummary.wearMinutes) : "暂无记录"} helper={`目标 ${formatMinutes(treatmentPlan.dailyGoalMinutes)}`} />
+        <MetricCard label={isWearing ? "还差" : "已取下"} value={todaySummary.hasData ? isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes) : "首次打卡后计算"} />
         <MetricCard label="取下次数" value={String(todaySummary.sessionCount)} helper="今日记录" />
         <MetricCard label="最长取下" value={formatMinutes(todaySummary.longestOffSessionMinutes)} />
       </div>
+
+      {!todaySummary.hasData ? (
+        <p className="rounded-md border border-amber/20 bg-white/80 p-3 text-xs leading-5 text-ink/60">
+          今天还没有真实佩戴记录。第一次点击“我取下牙套了”后，系统才会开始计算今日已戴、取下次数和趋势数据。
+        </p>
+      ) : null}
 
       <p className="rounded-md border border-ink/10 bg-mist/70 p-3 text-xs leading-5 text-ink/60">
         Loo牙管理器用于记录和理解佩戴计划，不提供诊断或换牙套决策；请以牙医/正畸医生指导为准。

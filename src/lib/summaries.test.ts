@@ -62,6 +62,7 @@ describe("calculateDailySummary", () => {
 
     expect(summary.offMinutes).toBe(90);
     expect(summary.wearMinutes).toBe(630);
+    expect(summary.hasData).toBe(true);
     expect(summary.goalMet).toBe(false);
   });
 
@@ -79,6 +80,20 @@ describe("calculateDailySummary", () => {
     });
 
     expect(summary.wearMinutes).toBe(1380);
+    expect(summary.hasData).toBe(true);
     expect(summary.goalMet).toBe(true);
+  });
+
+  it("does not invent wear minutes for days without records", () => {
+    const summary = calculateDailySummary({
+      date: "2026-06-01",
+      sessions: [],
+      treatmentPlan,
+      now: new Date("2026-06-01T12:00:00")
+    });
+
+    expect(summary.hasData).toBe(false);
+    expect(summary.wearMinutes).toBe(0);
+    expect(summary.goalMet).toBe(false);
   });
 });

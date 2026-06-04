@@ -50,8 +50,9 @@ export function calculateDailySummary(params: {
   const longestOffSessionMinutes = offParts
     .filter((part) => part.date === params.date)
     .reduce((longest, part) => Math.max(longest, part.minutes), 0);
+  const hasData = sessionCount > 0 || offMinutes > 0;
   const dayElapsed = elapsedMinutesInDay(params.date, now);
-  const wearMinutes = clamp(dayElapsed - offMinutes, 0, minutesInDay(params.date));
+  const wearMinutes = hasData ? clamp(dayElapsed - offMinutes, 0, minutesInDay(params.date)) : 0;
 
   return {
     date: params.date,
@@ -61,7 +62,8 @@ export function calculateDailySummary(params: {
     trayNumber: params.treatmentPlan.currentTrayNumber,
     sessionCount,
     longestOffSessionMinutes,
-    goalMet: wearMinutes >= params.treatmentPlan.dailyGoalMinutes
+    goalMet: hasData && wearMinutes >= params.treatmentPlan.dailyGoalMinutes,
+    hasData
   };
 }
 
@@ -83,7 +85,7 @@ export function calculateDailySummaries(params: {
 }
 
 export function calculateHistoryMetrics(summaries: DailySummary[]) {
-  const dated = [...summaries].sort((a, b) => a.date.localeCompare(b.date));
+  const dated = summaries.filter((summary) => summary.hasData).sort((a, b) => a.date.localeCompare(b.date));
   const last7 = dated.slice(-7);
   const last30 = dated.slice(-30);
   const goalDays = dated.filter((summary) => summary.goalMet).length;

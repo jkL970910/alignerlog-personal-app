@@ -73,6 +73,7 @@ export type DailySummary = {
   sessionCount: number;
   longestOffSessionMinutes: number;
   goalMet: boolean;
+  hasData: boolean;
 };
 
 export type AppSnapshot = {

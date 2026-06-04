@@ -162,14 +162,16 @@ export function CalendarDashboard() {
               <p className="text-xs font-semibold uppercase text-sage">{selectedDay.date}</p>
               <h2 className="mt-1 text-xl font-semibold text-ink">{getDayStatusLabel(selectedDay)}</h2>
             </div>
-            <p className="rounded-md bg-mist px-2 py-1 text-sm font-semibold text-ink">
-              {formatPercent(Math.min(100, (selectedDay.summary.wearMinutes / selectedDay.summary.goalMinutes) * 100))}
-            </p>
+            {selectedDay.hasData ? (
+              <p className="rounded-md bg-mist px-2 py-1 text-sm font-semibold text-ink">
+                {formatPercent(Math.min(100, (selectedDay.summary.wearMinutes / selectedDay.summary.goalMinutes) * 100))}
+              </p>
+            ) : null}
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <Detail label="已佩戴" value={formatMinutes(selectedDay.summary.wearMinutes)} />
-            <Detail label="取下" value={formatMinutes(selectedDay.summary.offMinutes)} />
+            <Detail label="已佩戴" value={selectedDay.hasData ? formatMinutes(selectedDay.summary.wearMinutes) : "暂无记录"} />
+            <Detail label="取下" value={selectedDay.hasData ? formatMinutes(selectedDay.summary.offMinutes) : "暂无记录"} />
             <Detail label="目标" value={formatMinutes(selectedDay.summary.goalMinutes)} />
             <Detail label="次数" value={String(selectedDay.summary.sessionCount)} />
           </div>
