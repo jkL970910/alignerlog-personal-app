@@ -4,7 +4,9 @@ import { sessionCookieName, verifySessionToken } from "@/server/edge-auth";
 
 const publicPaths = [
   "/login",
+  "/register",
   "/api/auth/login",
+  "/api/auth/register",
   "/manifest.webmanifest",
   "/sw.js",
   "/icon.svg"
