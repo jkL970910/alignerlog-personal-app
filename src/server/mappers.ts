@@ -1,6 +1,6 @@
-import type { DailyNote, OffTraySession, PlannedTray, PushSubscriptionRecord, ReminderJob, ReminderSettings, TreatmentExceptionEvent, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
+import type { DailyNote, DentalPhotoRecord, OffTraySession, PlannedTray, PushSubscriptionRecord, ReminderJob, ReminderSettings, TreatmentExceptionEvent, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
 
-import type { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import type { dailyNotes, dentalPhotoRecords, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 
 type UserRow = typeof users.$inferSelect;
 type TreatmentPlanRow = typeof treatmentPlans.$inferSelect;
@@ -14,6 +14,7 @@ type WearActionLogRow = typeof wearActionLogs.$inferSelect;
 type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 type ReminderJobRow = typeof reminderJobs.$inferSelect;
 type TreatmentExceptionEventRow = typeof treatmentExceptionEvents.$inferSelect;
+type DentalPhotoRecordRow = typeof dentalPhotoRecords.$inferSelect;
 
 export function mapUser(row: UserRow): UserAccount {
   return {
@@ -116,6 +117,15 @@ export function mapTreatmentExceptionEvent(row: TreatmentExceptionEventRow): Tre
     status: row.status as TreatmentExceptionEvent["status"],
     resolvedAt: row.resolvedAt?.toISOString() ?? null,
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+export function mapDentalPhotoRecord(row: DentalPhotoRecordRow): DentalPhotoRecord {
+  return {
+    ...row,
+    viewType: row.viewType as DentalPhotoRecord["viewType"],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
   };

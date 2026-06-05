@@ -1,11 +1,11 @@
 import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, ne, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
-import { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import { dailyNotes, dentalPhotoRecords, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 import { addDaysToDateKey, dayBounds, todayKey } from "@/lib/dates";
-import type { OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentExceptionStatus, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
+import type { DentalPhotoViewType, OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentExceptionStatus, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
 
-import { mapDailyNote, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentExceptionEvent, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
+import { mapDailyNote, mapDentalPhotoRecord, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentExceptionEvent, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
 
 const defaultGoalMinutes = 22 * 60;
 
@@ -219,6 +219,58 @@ export async function upsertDailyNote(userId: string, date: string, note: string
   }).returning();
 
   return mapDailyNote(updated);
+}
+
+export async function listDentalPhotoRecords(userId: string) {
+  const db = getDb();
+  const rows = await db.select().from(dentalPhotoRecords)
+    .where(eq(dentalPhotoRecords.userId, userId))
+    .orderBy(desc(dentalPhotoRecords.date), desc(dentalPhotoRecords.createdAt));
+
+  return rows.map(mapDentalPhotoRecord);
+}
+
+export async function createDentalPhotoRecord(params: {
+  userId: string;
+  date: string;
+  stageName?: string;
+  trayNumber?: number | null;
+  viewType: DentalPhotoViewType;
+  note?: string;
+  imageDataUrl: string;
+  imageMimeType: string;
+  imageSizeBytes: number;
+}) {
+  const db = getDb();
+  const now = new Date();
+  const [created] = await db.insert(dentalPhotoRecords).values({
+    userId: params.userId,
+    date: params.date,
+    stageName: params.stageName?.trim().slice(0, 80) ?? "",
+    trayNumber: params.trayNumber ?? null,
+    viewType: params.viewType,
+    note: params.note?.trim().slice(0, 1000) ?? "",
+    imageDataUrl: params.imageDataUrl,
+    imageMimeType: params.imageMimeType,
+    imageSizeBytes: params.imageSizeBytes,
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+
+  return mapDentalPhotoRecord(created);
+}
+
+export async function deleteDentalPhotoRecord(userId: string, photoId: string) {
+  const db = getDb();
+  const [deleted] = await db.delete(dentalPhotoRecords)
+    .where(and(eq(dentalPhotoRecords.userId, userId), eq(dentalPhotoRecords.id, photoId)))
+    .returning();
+
+  if (!deleted) {
+    throw new Error("找不到这张照片记录。");
+  }
+
+  return mapDentalPhotoRecord(deleted);
 }
 
 export async function startOffTraySession(userId: string, reason?: OffTrayReason) {

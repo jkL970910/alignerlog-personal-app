@@ -57,6 +57,13 @@
       "when": 1780707600000,
       "tag": "0007_treatment_exception_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780794000000,
+      "tag": "0008_dental_photo_records",
+      "breakpoints": true
     }
   ]
 }

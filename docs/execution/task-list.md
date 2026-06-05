@@ -189,6 +189,7 @@ Tasks:
 - Improve Today next-change date presentation to avoid narrow ISO date wrapping. Implemented locally.
 - Fix active off-tray duration display after local midnight to use today's day-sliced off time. Implemented locally.
 - Add treatment exception lifecycle and Today change-confirmation flow: active/resolved/cancelled exception records, Settings resolve/cancel controls, Today active-exception banner, and explicit confirm-to-advance current tray. Implemented locally.
+- Add dental photo records: authenticated photo upload, client-side compression, date/stage/tray/view metadata, photo archive, delete action, and two-photo side-by-side comparison. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
@@ -203,8 +204,9 @@ Acceptance:
 1. Deploy current exception lifecycle / tray-change confirmation slice and run mobile QA on Today + Settings.
 2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data/tray-boundary states, Settings plan create/import/update/reset, push subscription and reminder worker.
 3. Calendar exception markers: show exception start/resolution dots alongside tray boundary markers.
-4. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
-5. Multi-series timeline: initial/refinement/holding/retainer stages.
+4. Photo records QA: upload from mobile camera/library, verify compressed save/readback, delete isolation, and same-angle comparison.
+5. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
+6. Multi-series timeline: initial/refinement/holding/retainer stages.
 
 ## P1 Multi-Series And Exceptions
 
@@ -219,6 +221,25 @@ Tasks:
 - Add Calendar exception markers. Planned.
 - Add per-tray notes/symptom tags.
 - Add adherence-by-tray charts and forecast confidence labels.
+
+## P1 Dental Photo Records
+
+Status: active first pass
+
+Tasks:
+
+- Add photo record database table and authenticated API. Implemented locally.
+- Add mobile photo upload with metadata: date, stage, tray number, view type, and note. Implemented locally.
+- Compress photos client-side before saving to Postgres. Implemented locally as a low-volume personal-project shortcut.
+- Add photo archive and two-photo comparison view. Implemented locally.
+- Add object storage migration path if photo volume grows beyond small personal use. Planned.
+- Add AI-assisted descriptive comparison only after strict medical-safety copy and no-diagnosis boundary are in place. Planned.
+
+Acceptance:
+
+- Users can record teeth shape photos by stage without mixing accounts.
+- Users can compare two same-angle photos side-by-side.
+- Product copy makes clear that photos are for self-recording, not diagnosis or clinical treatment decisions.
 
 Acceptance:
 

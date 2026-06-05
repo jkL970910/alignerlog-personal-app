@@ -100,6 +100,23 @@ export type DailyNote = {
   updatedAt: string;
 };
 
+export type DentalPhotoViewType = "front" | "upper" | "lower" | "left" | "right" | "bite" | "other";
+
+export type DentalPhotoRecord = {
+  id: string;
+  userId: string;
+  date: string;
+  stageName: string;
+  trayNumber: number | null;
+  viewType: DentalPhotoViewType;
+  note: string;
+  imageDataUrl: string;
+  imageMimeType: string;
+  imageSizeBytes: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ReminderSettings = {
   id: string;
   userId: string;

@@ -293,3 +293,25 @@ export const treatmentExceptionEvents = pgTable(
     userSeriesStatusIdx: index("treatment_exception_events_user_series_status_idx").on(table.userId, table.seriesId, table.status)
   })
 );
+
+export const dentalPhotoRecords = pgTable(
+  "dental_photo_records",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    date: varchar("date", { length: 10 }).notNull(),
+    stageName: varchar("stage_name", { length: 80 }).notNull().default(""),
+    trayNumber: integer("tray_number"),
+    viewType: varchar("view_type", { length: 40 }).notNull(),
+    note: text("note").notNull().default(""),
+    imageDataUrl: text("image_data_url").notNull(),
+    imageMimeType: varchar("image_mime_type", { length: 40 }).notNull(),
+    imageSizeBytes: integer("image_size_bytes").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userDateIdx: index("dental_photo_records_user_date_idx").on(table.userId, table.date),
+    userCreatedIdx: index("dental_photo_records_user_created_idx").on(table.userId, table.createdAt)
+  })
+);
