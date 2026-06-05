@@ -6,6 +6,7 @@ import { apiError, apiJson } from "@/server/http";
 import {
   createManualOffTraySession,
   createWearActionLog,
+  endActiveOffTraySessionAt,
   startManualActiveOffTraySession,
   getActiveSession,
   getOrCreateTreatmentPlan,
@@ -17,8 +18,8 @@ import { getRequestTimeZone } from "@/server/time-zone";
 export const runtime = "nodejs";
 
 type ManualSessionRequest = {
-  mode?: "closed_session" | "forgot_put_back";
-  startLocal: string;
+  mode?: "closed_session" | "forgot_take_off_open" | "forgot_put_back";
+  startLocal?: string;
   endLocal?: string;
   reason?: OffTrayReason;
 };
@@ -29,24 +30,19 @@ export async function POST(request: Request) {
     const timeZone = getRequestTimeZone(request);
     const body = await request.json() as ManualSessionRequest;
     const mode = body.mode ?? "closed_session";
-    const startAt = localDateTimeToUtc(body.startLocal, timeZone);
-    const result = mode === "forgot_put_back"
-      ? await startManualActiveOffTraySession({
-        userId,
-        startAt,
-        reason: body.reason
-      })
-      : await createManualOffTraySession({
-        userId,
-        startAt,
-        endAt: localDateTimeToUtc(body.endLocal ?? "", timeZone),
-        reason: body.reason
-      });
+    const result = await runManualCorrection({
+      mode,
+      userId,
+      startLocal: body.startLocal,
+      endLocal: body.endLocal,
+      reason: body.reason,
+      timeZone
+    });
     const session = "session" in result ? result.session : result;
     const wearState = "wearState" in result ? result.wearState : await getOrCreateWearState(userId);
     await createWearActionLog({
       userId,
-      action: "start",
+      action: mode === "forgot_put_back" ? "end" : "start",
       changed: true,
       sessionId: session.id,
       resultingIsWearing: wearState.isWearing,
@@ -80,4 +76,35 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiError(error);
   }
+}
+
+function runManualCorrection(params: {
+  mode: NonNullable<ManualSessionRequest["mode"]>;
+  userId: string;
+  startLocal?: string;
+  endLocal?: string;
+  reason?: OffTrayReason;
+  timeZone: string;
+}) {
+  if (params.mode === "forgot_take_off_open") {
+    return startManualActiveOffTraySession({
+      userId: params.userId,
+      startAt: localDateTimeToUtc(params.startLocal ?? "", params.timeZone),
+      reason: params.reason
+    });
+  }
+
+  if (params.mode === "forgot_put_back") {
+    return endActiveOffTraySessionAt({
+      userId: params.userId,
+      endAt: localDateTimeToUtc(params.endLocal ?? "", params.timeZone)
+    });
+  }
+
+  return createManualOffTraySession({
+    userId: params.userId,
+    startAt: localDateTimeToUtc(params.startLocal ?? "", params.timeZone),
+    endAt: localDateTimeToUtc(params.endLocal ?? "", params.timeZone),
+    reason: params.reason
+  });
 }

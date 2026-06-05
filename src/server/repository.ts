@@ -284,6 +284,59 @@ export async function endActiveOffTraySession(userId: string) {
   };
 }
 
+export async function endActiveOffTraySessionAt(params: {
+  userId: string;
+  endAt: Date;
+}) {
+  const now = new Date();
+
+  if (params.endAt.getTime() > now.getTime()) {
+    throw new Error("补记时间不能晚于当前时间。");
+  }
+
+  const db = getDb();
+  const state = await getWearState(params.userId);
+  const active = await getActiveSession(params.userId);
+
+  if (!active) {
+    throw new Error("当前没有正在取下的记录，无法补记戴回时间。");
+  }
+
+  if (params.endAt.getTime() <= new Date(active.startAt).getTime()) {
+    throw new Error("戴回时间必须晚于取下时间。");
+  }
+
+  const [session] = await db.update(offTraySessions)
+    .set({
+      endAt: params.endAt,
+      reminderStatus: active.reminderStatus === "scheduled" ? "cancelled" : active.reminderStatus,
+      updatedAt: now
+    })
+    .where(eq(offTraySessions.id, active.id))
+    .returning();
+  const nextState = {
+    isWearing: true,
+    currentOffSessionId: null,
+    lastChangedAt: params.endAt,
+    updatedAt: now
+  };
+  const [updatedState] = state
+    ? await db.update(wearStates)
+      .set(nextState)
+      .where(eq(wearStates.userId, params.userId))
+      .returning()
+    : await db.insert(wearStates).values({
+      userId: params.userId,
+      ...nextState
+    }).returning();
+  await cancelReminderJobsForSession(params.userId, active.id);
+
+  return {
+    session: mapOffTraySession(session),
+    wearState: mapWearState(updatedState)
+  };
+}
+
 export async function createManualOffTraySession(params: {
   userId: string;
   startAt: Date;
