@@ -3,7 +3,7 @@ import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, or } from "drizzle
 import { getDb } from "@/lib/db/client";
 import { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 import { addDaysToDateKey, dayBounds, todayKey } from "@/lib/dates";
-import type { OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
+import type { OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentExceptionStatus, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
 
 import { mapDailyNote, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentExceptionEvent, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
 
@@ -549,6 +549,20 @@ export async function listTreatmentExceptionEvents(userId: string, seriesId: str
   return rows.map(mapTreatmentExceptionEvent);
 }
 
+export async function listActiveTreatmentExceptionEvents(userId: string, seriesId: string, limit = 3) {
+  const db = getDb();
+  const rows = await db.select().from(treatmentExceptionEvents)
+    .where(and(
+      eq(treatmentExceptionEvents.userId, userId),
+      eq(treatmentExceptionEvents.seriesId, seriesId),
+      eq(treatmentExceptionEvents.status, "active")
+    ))
+    .orderBy(desc(treatmentExceptionEvents.createdAt))
+    .limit(limit);
+
+  return rows.map(mapTreatmentExceptionEvent);
+}
+
 export async function applyTreatmentException(params: {
   userId: string;
   eventType: TreatmentExceptionType;
@@ -572,8 +586,14 @@ export async function applyTreatmentException(params: {
     const eventDate = normalizeDateKey(params.eventDate);
     const note = params.note?.trim().slice(0, 1000) ?? "";
     let scheduleAdjusted = false;
+    const isExtensionEvent = params.eventType === "extend_current_tray"
+      || params.eventType === "tray_extension"
+      || params.eventType === "late_change";
+    const isWaitingEvent = params.eventType === "waiting_refinement"
+      || params.eventType === "waiting_rescan"
+      || params.eventType === "waiting_retainer";
 
-    if (params.eventType === "extend_current_tray") {
+    if (isExtensionEvent) {
       const extensionDays = params.extensionDays ?? 0;
 
       if (!Number.isInteger(extensionDays) || extensionDays < 1 || extensionDays > 30) {
@@ -617,16 +637,21 @@ export async function applyTreatmentException(params: {
       scheduleAdjusted = true;
     }
 
-    if (params.eventType === "waiting_refinement" || params.eventType === "waiting_retainer") {
-      const nextStatus = params.eventType === "waiting_refinement" ? "waiting_refinement" : "holding";
-      const nextSeriesType = params.eventType === "waiting_refinement" ? series.seriesType : "holding";
+    if (isWaitingEvent) {
+      const nextStatus = params.eventType === "waiting_retainer" ? "holding" : "waiting_refinement";
+      const nextSeriesType = params.eventType === "waiting_retainer" ? "holding" : series.seriesType;
+      const waitingLabel = params.eventType === "waiting_retainer"
+        ? "等待保持器"
+        : params.eventType === "waiting_rescan"
+          ? "等待复扫"
+          : "等待精修";
 
       await tx.update(treatmentSeries)
         .set({
           status: nextStatus,
           seriesType: nextSeriesType,
           nextChangeDate: null,
-          clinicianNotes: appendNote(series.clinicianNotes, `${params.eventType === "waiting_refinement" ? "等待精修/复扫" : "等待保持器"}。${note}`),
+          clinicianNotes: appendNote(series.clinicianNotes, `${waitingLabel}。${note}`),
           updatedAt: now
         })
         .where(eq(treatmentSeries.id, series.id));
@@ -647,9 +672,10 @@ export async function applyTreatmentException(params: {
       trayNumber: series.currentTrayNumber,
       eventType: params.eventType,
       eventDate,
-      extensionDays: params.eventType === "extend_current_tray" ? params.extensionDays ?? null : null,
+      extensionDays: isExtensionEvent ? params.extensionDays ?? null : null,
       note,
       scheduleAdjusted,
+      status: "active",
       createdAt: now,
       updatedAt: now
     }).returning();
@@ -661,6 +687,138 @@ export async function applyTreatmentException(params: {
 
     return {
       event: mapTreatmentExceptionEvent(event),
+      series: mapTreatmentSeries(updatedSeries),
+      trays: trays.map(mapPlannedTray)
+    };
+  });
+}
+
+export async function updateTreatmentExceptionStatus(params: {
+  userId: string;
+  eventId: string;
+  status: Extract<TreatmentExceptionStatus, "resolved" | "cancelled">;
+}) {
+  const db = getDb();
+  const now = new Date();
+  const [event] = await db.update(treatmentExceptionEvents)
+    .set({
+      status: params.status,
+      resolvedAt: params.status === "resolved" ? now : null,
+      cancelledAt: params.status === "cancelled" ? now : null,
+      updatedAt: now
+    })
+    .where(and(eq(treatmentExceptionEvents.userId, params.userId), eq(treatmentExceptionEvents.id, params.eventId)))
+    .returning();
+
+  if (!event) {
+    throw new Error("找不到这条异常记录。");
+  }
+
+  return mapTreatmentExceptionEvent(event);
+}
+
+export async function advanceActiveTreatmentTray(userId: string, dateKey: string) {
+  const db = getDb();
+  const now = new Date();
+  const confirmedDate = normalizeDateKey(dateKey);
+
+  return db.transaction(async (tx) => {
+    const [series] = await tx.select().from(treatmentSeries)
+      .where(and(eq(treatmentSeries.userId, userId), eq(treatmentSeries.isActive, true)))
+      .orderBy(desc(treatmentSeries.createdAt))
+      .limit(1);
+
+    if (!series) {
+      throw new Error("还没有可推进的牙套计划。");
+    }
+
+    if (series.status !== "active") {
+      throw new Error("当前计划处于暂停/等待状态，请先处理异常或更新计划。");
+    }
+
+    if (!series.totalTrays || series.currentTrayNumber >= series.totalTrays) {
+      throw new Error("当前已经是本阶段最后一副，请按医生安排导入下一阶段或记录等待状态。");
+    }
+
+    if (series.nextChangeDate && confirmedDate < series.nextChangeDate) {
+      throw new Error("还没到计划换期日；如果医生要求提前或延后，请用异常处理记录。");
+    }
+
+    const nextTrayNumber = series.currentTrayNumber + 1;
+    const nextChangeDate = addDaysToDateKey(confirmedDate, series.trayIntervalDays);
+    const [nextTray] = await tx.select().from(plannedTrays)
+      .where(and(
+        eq(plannedTrays.userId, userId),
+        eq(plannedTrays.seriesId, series.id),
+        eq(plannedTrays.trayNumber, nextTrayNumber)
+      ))
+      .limit(1);
+    const shiftDays = nextTray
+      ? dateKeyDiff(confirmedDate, nextTray.plannedStartDate)
+      : 0;
+
+    await tx.update(plannedTrays)
+      .set({ status: "completed", updatedAt: now })
+      .where(and(
+        eq(plannedTrays.userId, userId),
+        eq(plannedTrays.seriesId, series.id),
+        eq(plannedTrays.trayNumber, series.currentTrayNumber)
+      ));
+
+    await tx.update(plannedTrays)
+      .set({
+        status: "current",
+        plannedStartDate: confirmedDate,
+        plannedEndDate: addDaysToDateKey(confirmedDate, series.trayIntervalDays - 1),
+        source: "adjusted",
+        updatedAt: now
+      })
+      .where(and(
+        eq(plannedTrays.userId, userId),
+        eq(plannedTrays.seriesId, series.id),
+        eq(plannedTrays.trayNumber, nextTrayNumber)
+      ));
+
+    if (shiftDays !== 0) {
+      const futureTrays = await tx.select().from(plannedTrays)
+        .where(and(
+          eq(plannedTrays.userId, userId),
+          eq(plannedTrays.seriesId, series.id),
+          gt(plannedTrays.trayNumber, nextTrayNumber)
+        ));
+
+      await Promise.all(futureTrays.map((tray) => tx.update(plannedTrays)
+        .set({
+          plannedStartDate: addDaysToDateKey(tray.plannedStartDate, shiftDays),
+          plannedEndDate: addDaysToDateKey(tray.plannedEndDate, shiftDays),
+          source: "adjusted",
+          updatedAt: now
+        })
+        .where(eq(plannedTrays.id, tray.id))));
+    }
+
+    const [updatedSeries] = await tx.update(treatmentSeries)
+      .set({
+        currentTrayNumber: nextTrayNumber,
+        currentTrayStartDate: confirmedDate,
+        nextChangeDate,
+        updatedAt: now
+      })
+      .where(eq(treatmentSeries.id, series.id))
+      .returning();
+
+    await tx.update(treatmentPlans)
+      .set({
+        currentTrayNumber: nextTrayNumber,
+        updatedAt: now
+      })
+      .where(eq(treatmentPlans.userId, userId));
+
+    const trays = await tx.select().from(plannedTrays)
+      .where(and(eq(plannedTrays.userId, userId), eq(plannedTrays.seriesId, series.id)))
+      .orderBy(asc(plannedTrays.trayNumber));
+
+    return {
       series: mapTreatmentSeries(updatedSeries),
       trays: trays.map(mapPlannedTray)
     };
@@ -976,4 +1134,13 @@ function appendNote(existing: string, next: string) {
   }
 
   return [existing.trim(), cleanNext].filter(Boolean).join("\n");
+}
+
+function dateKeyDiff(left: string, right: string) {
+  const [leftYear, leftMonth, leftDay] = left.split("-").map(Number);
+  const [rightYear, rightMonth, rightDay] = right.split("-").map(Number);
+  const leftMs = Date.UTC(leftYear, leftMonth - 1, leftDay);
+  const rightMs = Date.UTC(rightYear, rightMonth - 1, rightDay);
+
+  return Math.round((leftMs - rightMs) / 86_400_000);
 }

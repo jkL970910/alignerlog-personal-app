@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Clock, Loader2, ShieldCheck, Utensils } from "lucide-react";
 
 import { formatMinutes, formatPercent } from "@/lib/format";
-import { timeZoneHeaders } from "@/lib/client-time-zone";
+import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
 import type { AppSnapshot } from "@/lib/types";
 
 import { MetricCard } from "./metric-card";
@@ -26,6 +26,8 @@ export function TodayDashboard() {
   const [manualEnd, setManualEnd] = useState("");
   const [manualPending, setManualPending] = useState(false);
   const [manualMessage, setManualMessage] = useState<string | null>(null);
+  const [advancePending, setAdvancePending] = useState(false);
+  const [advanceMessage, setAdvanceMessage] = useState<string | null>(null);
 
   async function load() {
     const response = await fetch("/api/snapshot", {
@@ -140,6 +142,43 @@ export function TodayDashboard() {
     }
   }
 
+  async function advanceTray() {
+    if (state.status !== "ready") {
+      return;
+    }
+
+    setAdvancePending(true);
+    setAdvanceMessage(null);
+
+    try {
+      const response = await fetch("/api/treatment-plan/advance", {
+        method: "POST",
+        headers: timeZoneHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ confirmedDate: getClientDateKey() })
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "无法确认换期。");
+      }
+
+      setState({
+        status: "ready",
+        data: {
+          ...state.data,
+          planProgress: payload.progress,
+          activeException: null,
+          recentExceptions: []
+        }
+      });
+      setAdvanceMessage(`已进入第 ${payload.series.currentTrayNumber} 副。`);
+    } catch (error) {
+      setAdvanceMessage(error instanceof Error ? error.message : "无法确认换期。");
+    } finally {
+      setAdvancePending(false);
+    }
+  }
+
   if (state.status === "loading") {
     return (
       <div className="flex min-h-72 items-center justify-center rounded-md border border-ink/10 bg-white/75">
@@ -154,6 +193,9 @@ export function TodayDashboard() {
 
   const { wearState, activeSession, todaySummary, treatmentPlan } = state.data;
   const planProgress = state.data.planProgress;
+  const activeException = state.data.activeException ?? null;
+  const isTrayDue = Boolean(planProgress && planProgress.label === "on_track" && planProgress.daysUntilNextChange !== null && planProgress.daysUntilNextChange <= 0);
+  const canAdvanceTray = Boolean(isTrayDue && planProgress?.totalTrays && planProgress.currentTrayNumber < planProgress.totalTrays);
   const isWearing = wearState.isWearing;
   const progress = todaySummary.hasData ? Math.min(100, (todaySummary.wearMinutes / treatmentPlan.dailyGoalMinutes) * 100) : 0;
   const activeOutMinutes = activeSession ? todaySummary.offMinutes : 0;
@@ -176,6 +218,60 @@ export function TodayDashboard() {
               {planProgress.nextChangeDate ? <p className="mt-0.5 text-xs text-ink/45">{formatWeekday(planProgress.nextChangeDate)}</p> : null}
             </div>
           </div>
+        </section>
+      ) : null}
+
+      {activeException ? (
+        <section className="rounded-md border border-coral/25 bg-coral/10 p-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-[0.18em] text-coral">当前异常</p>
+          <h2 className="mt-2 text-lg font-semibold text-ink">{formatExceptionType(activeException.eventType)}</h2>
+          <p className="mt-1 text-sm leading-6 text-ink/65">
+            {getExceptionText(activeException.eventType)}
+          </p>
+          {activeException.note ? <p className="mt-2 rounded-md bg-white/70 p-2 text-xs leading-5 text-ink/60">{activeException.note}</p> : null}
+          <p className="mt-2 text-xs leading-5 text-ink/55">
+            在医生确认前，不要仅根据应用日程自行换到下一副或回退上一副。可在设置页标记已解决或取消记录。
+          </p>
+          <button
+            className="mt-3 min-h-10 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white"
+            onClick={() => { window.location.href = "/settings"; }}
+            type="button"
+          >
+            去设置页处理异常
+          </button>
+        </section>
+      ) : null}
+
+      {isTrayDue ? (
+        <section className="rounded-md border border-mint/25 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-[0.18em] text-sage">换期确认</p>
+          <h2 className="mt-2 text-xl font-semibold text-ink">
+            {canAdvanceTray ? `是否已换到第 ${planProgress!.currentTrayNumber + 1} 副？` : "当前阶段已到计划结束日"}
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-ink/60">
+            {canAdvanceTray
+              ? "系统不会自动推进牙套副数。只有你确认已经按医生安排换到下一副后，首页和日程才会更新。"
+              : "已经是当前阶段最后一副。请按医生安排记录等待精修/复扫/保持器，或在设置页导入下一阶段计划。"}
+          </p>
+          {canAdvanceTray ? (
+            <button
+              className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-mint px-4 text-sm font-semibold text-white disabled:opacity-60"
+              disabled={advancePending || Boolean(activeException)}
+              onClick={advanceTray}
+              type="button"
+            >
+              {advancePending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              确认已换到下一副
+            </button>
+          ) : null}
+          <button
+            className="mt-2 min-h-11 w-full rounded-md border border-ink/10 px-4 text-sm font-semibold text-ink"
+            onClick={() => { window.location.href = "/settings"; }}
+            type="button"
+          >
+            需要异常处理
+          </button>
+          {advanceMessage ? <p className={`mt-3 text-xs ${advanceMessage.startsWith("已") ? "text-sage" : "text-coral"}`}>{advanceMessage}</p> : null}
         </section>
       ) : null}
 
@@ -408,9 +504,38 @@ function getProgressText(progress: NonNullable<AppSnapshot["planProgress"]>) {
   const nextText = progress.daysUntilNextChange === null
     ? "下次换期待确认"
     : progress.daysUntilNextChange <= 0
-      ? "已到计划换期日"
+      ? "已到计划换期日，请在首页确认是否已经换到下一副"
       : `距离计划换期 ${progress.daysUntilNextChange} 天`;
   const remainingText = progress.traysRemaining === null ? "" : `，剩余 ${progress.traysRemaining} 副`;
 
   return `${dayText}，${nextText}${remainingText}。`;
+}
+
+function formatExceptionType(type: NonNullable<AppSnapshot["activeException"]>["eventType"]) {
+  const labels: Record<NonNullable<AppSnapshot["activeException"]>["eventType"], string> = {
+    late_change: "延迟换期",
+    tray_extension: "当前副延戴",
+    extend_current_tray: "当前副延戴",
+    poor_fit: "牙套不贴合",
+    lost_tray: "牙套丢失",
+    broken_tray: "牙套损坏",
+    lost_or_broken: "丢失/损坏",
+    waiting_refinement: "等待精修",
+    waiting_rescan: "等待复扫",
+    waiting_retainer: "等待保持器"
+  };
+
+  return labels[type];
+}
+
+function getExceptionText(type: NonNullable<AppSnapshot["activeException"]>["eventType"]) {
+  if (type === "late_change" || type === "tray_extension" || type === "extend_current_tray") {
+    return "当前牙套日程已按记录顺延。请确认医生要求后再进入下一副。";
+  }
+
+  if (type === "waiting_refinement" || type === "waiting_rescan" || type === "waiting_retainer") {
+    return "当前计划处于等待状态，换期倒计时已暂停。";
+  }
+
+  return "此情况只做记录和提醒，不自动建议换副或回退。";
 }

@@ -188,6 +188,7 @@ Tasks:
 - Split manual correction into forgot-take-off already-back, forgot-take-off still-out, and forgot-put-back modes. Implemented locally.
 - Improve Today next-change date presentation to avoid narrow ISO date wrapping. Implemented locally.
 - Fix active off-tray duration display after local midnight to use today's day-sliced off time. Implemented locally.
+- Add treatment exception lifecycle and Today change-confirmation flow: active/resolved/cancelled exception records, Settings resolve/cancel controls, Today active-exception banner, and explicit confirm-to-advance current tray. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
@@ -199,11 +200,11 @@ Acceptance:
 
 ## Current Next Priorities
 
-1. Deploy PWA push reminder foundation and manually test notification permission/subscription on phone.
-2. Deploy Cloudflare Worker Cron and verify it can call `/api/workers/reminders/run`.
-3. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data/tray-boundary states, Settings plan create/import/update/reset, push subscription and reminder worker.
+1. Deploy current exception lifecycle / tray-change confirmation slice and run mobile QA on Today + Settings.
+2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data/tray-boundary states, Settings plan create/import/update/reset, push subscription and reminder worker.
+3. Calendar exception markers: show exception start/resolution dots alongside tray boundary markers.
 4. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
-5. P1 exception flows: late change, tray extension, poor fit, lost/broken tray, waiting for refinement.
+5. Multi-series timeline: initial/refinement/holding/retainer stages.
 
 ## P1 Multi-Series And Exceptions
 
@@ -213,7 +214,9 @@ Tasks:
 
 - Add refinement series. Planned.
 - Add passive/holding and retainer-specific flows. First pass implemented through waiting-refinement / waiting-retainer exception states.
-- Add exception events: delayed change, tray extension, poor fit, lost/broken tray, waiting for rescan/refinement/retainer. First pass implemented locally for current active series.
+- Add exception events: delayed change, tray extension, poor fit, lost/broken tray, waiting for rescan/refinement/retainer. Lifecycle closure implemented locally with active/resolved/cancelled states and Settings controls.
+- Add explicit tray-change confirmation on Today. Implemented locally; the app does not auto-advance current tray when a planned interval ends.
+- Add Calendar exception markers. Planned.
 - Add per-tray notes/symptom tags.
 - Add adherence-by-tray charts and forecast confidence labels.
 

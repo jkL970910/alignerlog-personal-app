@@ -9,6 +9,7 @@ import {
   getOrCreateReminderSettings,
   getOrCreateTreatmentPlan,
   getWearState,
+  listActiveTreatmentExceptionEvents,
   listPlannedTraysForSeries,
   listSessionsForRange
 } from "@/server/repository";
@@ -66,6 +67,7 @@ export async function GET(request: Request) {
       trays: plannedTrays,
       todayKey: date
     }) : null;
+    const activeExceptions = activeSeries ? await listActiveTreatmentExceptionEvents(userId, activeSeries.id, 3) : [];
 
     return apiJson({
       wearState,
@@ -73,7 +75,9 @@ export async function GET(request: Request) {
       reminderSettings,
       activeSession,
       todaySummary,
-      planProgress
+      planProgress,
+      activeException: activeExceptions[0] ?? null,
+      recentExceptions: activeExceptions
     });
   } catch (error) {
     return apiError(error);

@@ -113,6 +113,9 @@ export function mapTreatmentExceptionEvent(row: TreatmentExceptionEventRow): Tre
   return {
     ...row,
     eventType: row.eventType as TreatmentExceptionEvent["eventType"],
+    status: row.status as TreatmentExceptionEvent["status"],
+    resolvedAt: row.resolvedAt?.toISOString() ?? null,
+    cancelledAt: row.cancelledAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
   };

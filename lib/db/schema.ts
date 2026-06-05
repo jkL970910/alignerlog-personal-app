@@ -281,11 +281,15 @@ export const treatmentExceptionEvents = pgTable(
     extensionDays: integer("extension_days"),
     note: text("note").notNull().default(""),
     scheduleAdjusted: boolean("schedule_adjusted").notNull().default(false),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
     userSeriesDateIdx: index("treatment_exception_events_user_series_date_idx").on(table.userId, table.seriesId, table.eventDate),
-    userCreatedIdx: index("treatment_exception_events_user_created_idx").on(table.userId, table.createdAt)
+    userCreatedIdx: index("treatment_exception_events_user_created_idx").on(table.userId, table.createdAt),
+    userSeriesStatusIdx: index("treatment_exception_events_user_series_status_idx").on(table.userId, table.seriesId, table.status)
   })
 );

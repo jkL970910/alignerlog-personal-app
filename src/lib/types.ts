@@ -130,6 +130,8 @@ export type AppSnapshot = {
   activeSession: OffTraySession | null;
   todaySummary: DailySummary;
   planProgress?: PlanProgress | null;
+  activeException?: TreatmentExceptionEvent | null;
+  recentExceptions?: TreatmentExceptionEvent[];
 };
 
 export type CalendarDay = {
@@ -156,11 +158,18 @@ export type PlannedTrayStatus = "completed" | "current" | "upcoming" | "extended
 export type PlannedTraySource = "imported" | "generated" | "adjusted";
 
 export type TreatmentExceptionType =
+  | "late_change"
+  | "tray_extension"
   | "extend_current_tray"
   | "poor_fit"
+  | "lost_tray"
+  | "broken_tray"
   | "lost_or_broken"
   | "waiting_refinement"
+  | "waiting_rescan"
   | "waiting_retainer";
+
+export type TreatmentExceptionStatus = "active" | "resolved" | "cancelled";
 
 export type TreatmentSeries = {
   id: string;
@@ -210,6 +219,9 @@ export type TreatmentExceptionEvent = {
   extensionDays: number | null;
   note: string;
   scheduleAdjusted: boolean;
+  status: TreatmentExceptionStatus;
+  resolvedAt: string | null;
+  cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
