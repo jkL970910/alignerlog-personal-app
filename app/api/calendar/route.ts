@@ -2,7 +2,7 @@ import { addDays, endOfMonth, startOfMonth, startOfWeek } from "date-fns";
 
 import { dateKeysBetween, parseDateKey, todayKey, toDateKey } from "@/lib/dates";
 import { calculateDailySummary } from "@/lib/summaries";
-import type { CalendarTrayEvent, PlannedTray } from "@/lib/types";
+import type { CalendarTrayEvent, DailyNote, PlannedTray } from "@/lib/types";
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
 import {
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     const trayEventsByDate = buildTrayEventsByDate(plannedTrays);
     const sessions = await listSessionsForRange(userId, startDate, endDate, timeZone);
     const notes = await listDailyNotesForRange(userId, startDate, endDate);
-    const notesByDate = new Map(notes.map((note) => [note.date, note]));
+    const notesByDate = buildNotesByDate(notes);
     const today = todayKey(new Date(), timeZone);
 
     return apiJson({
@@ -64,19 +64,35 @@ export async function GET(request: Request) {
             hasData: false
           };
 
+        const dayNotes = notesByDate.get(date) ?? [];
+
         return {
           date,
           summary,
-          note: notesByDate.get(date) ?? null,
+          note: dayNotes[0] ?? null,
+          notes: dayNotes,
           trayEvents: trayEventsByDate.get(date) ?? [],
-          hasData: hasCalendarData(summary, Boolean(notesByDate.get(date))),
-          status: getCalendarStatus(summary, Boolean(notesByDate.get(date)))
+          hasData: hasCalendarData(summary, dayNotes.length > 0),
+          status: getCalendarStatus(summary, dayNotes.length > 0)
         };
       })
     });
   } catch (error) {
     return apiError(error);
   }
+}
+
+function buildNotesByDate(notes: DailyNote[]) {
+  const notesByDate = new Map<string, DailyNote[]>();
+
+  notes.forEach((note) => {
+    const values = notesByDate.get(note.date) ?? [];
+
+    values.push(note);
+    notesByDate.set(note.date, values);
+  });
+
+  return notesByDate;
 }
 
 function buildTrayEventsByDate(plannedTrays: PlannedTray[]) {

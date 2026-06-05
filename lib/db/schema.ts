@@ -156,7 +156,8 @@ export const dailyNotes = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
-    userDateIdx: uniqueIndex("daily_notes_user_date_idx").on(table.userId, table.date)
+    userDateIdx: index("daily_notes_user_date_idx").on(table.userId, table.date),
+    userCreatedIdx: index("daily_notes_user_created_idx").on(table.userId, table.createdAt)
   })
 );
 

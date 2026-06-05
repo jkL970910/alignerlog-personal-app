@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
-import { upsertDailyNote } from "@/server/repository";
+import { createDailyNote } from "@/server/repository";
 
 export const runtime = "nodejs";
 
@@ -11,7 +11,7 @@ const noteSchema = z.object({
   note: z.string().max(2000)
 });
 
-export async function PATCH(request: Request) {
+export async function POST(request: Request) {
   try {
     const userId = await requireCurrentUserId();
     const parsed = noteSchema.safeParse(await request.json().catch(() => null));
@@ -20,7 +20,7 @@ export async function PATCH(request: Request) {
       return apiJson({ error: "Invalid note payload." }, { status: 400 });
     }
 
-    const note = await upsertDailyNote(userId, parsed.data.date, parsed.data.note.trim());
+    const note = await createDailyNote(userId, parsed.data.date, parsed.data.note.trim());
 
     return apiJson({ note });
   } catch (error) {

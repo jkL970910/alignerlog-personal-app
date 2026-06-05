@@ -30,6 +30,7 @@ type PhotoRecordsDashboardProps = {
   compact?: boolean;
   title?: string;
   helper?: string;
+  deferUploadForm?: boolean;
 };
 
 const viewOptions: Array<{ value: DentalPhotoViewType; label: string }> = [
@@ -50,6 +51,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [draft, setDraft] = useState<UploadDraft>(() => ({
@@ -133,6 +135,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
       setDraft((current) => ({ ...current, note: "" }));
       await loadPhotos();
       setMessage("已保存照片记录。");
+      setUploadOpen(false);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "无法保存照片记录。");
     } finally {
@@ -185,117 +188,66 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
   return (
     <div className="space-y-4">
       <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="rounded-full bg-rose/15 p-2 text-rose">
-            <Camera className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-ink">{props.title ?? "新增阶段照片"}</h2>
-            <p className="mt-1 text-sm leading-6 text-ink/60">
-              {props.helper ?? "建议在相同角度、光线和距离下拍摄。照片仅用于自我记录，不提供诊断或换牙套建议。"}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <label className="block text-sm font-medium text-ink">
-            拍摄日期
-            <input
-              className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-              disabled={Boolean(props.embeddedDate)}
-              onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))}
-              type="date"
-              value={draft.date}
-            />
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-sm font-medium text-ink">
-              阶段
-              <input
-                className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-                maxLength={80}
-                onChange={(event) => setDraft((current) => ({ ...current, stageName: event.target.value }))}
-                placeholder="如：第一阶段"
-                value={draft.stageName}
-              />
-            </label>
-            <label className="block text-sm font-medium text-ink">
-              当前副数
-              <input
-                className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-                inputMode="numeric"
-                min={1}
-                onChange={(event) => setDraft((current) => ({ ...current, trayNumber: event.target.value }))}
-                placeholder="如：12"
-                type="number"
-                value={draft.trayNumber}
-              />
-            </label>
-          </div>
-
-          <label className="block text-sm font-medium text-ink">
-            拍摄角度
-            <select
-              className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-              onChange={(event) => setDraft((current) => ({ ...current, viewType: event.target.value as DentalPhotoViewType }))}
-              value={draft.viewType}
-            >
-              {viewOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-ink">照片</p>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-dashed border-ink/20 bg-mist/50 px-3 text-sm font-semibold text-ink">
-                拍照上传
-                <input
-                  accept="image/*"
-                  capture="environment"
-                  className="sr-only"
-                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-                  type="file"
-                />
-              </label>
-              <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-ink/15 bg-white px-3 text-sm font-semibold text-ink">
-                从相册选择
-                <input
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-                  type="file"
-                />
-              </label>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="rounded-full bg-rose/15 p-2 text-rose">
+              <Camera className="h-5 w-5" />
             </div>
-            <p className="text-xs leading-5 text-ink/50">
-              {selectedFile ? `已选择：${selectedFile.name}` : "可以现场拍照，也可以从手机相册选择已有照片。"}
-            </p>
+            <div>
+              <h2 className="text-base font-semibold text-ink">{props.title ?? "新增阶段照片"}</h2>
+              <p className="mt-1 text-sm leading-6 text-ink/60">
+                {props.helper ?? "建议在相同角度、光线和距离下拍摄。照片仅用于自我记录，不提供诊断或换牙套建议。"}
+              </p>
+            </div>
           </div>
-
-          <label className="block text-sm font-medium text-ink">
-            备注
-            <textarea
-              className="mt-1 min-h-20 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-              maxLength={1000}
-              onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
-              placeholder="如：第12副第3天，感觉右侧咬合更贴合。"
-              value={draft.note}
-            />
-          </label>
-
-          <button
-            className="w-full rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={pending}
-            onClick={uploadPhoto}
-            type="button"
-          >
-            {pending ? "保存中..." : "保存照片记录"}
-          </button>
-          {message ? <p className="text-sm text-ink/60">{message}</p> : null}
+          {props.deferUploadForm ? (
+            <button
+              className="shrink-0 rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"
+              onClick={() => setUploadOpen(true)}
+              type="button"
+            >
+              新增
+            </button>
+          ) : null}
         </div>
+
+        {props.deferUploadForm && !uploadOpen ? (
+          <p className="mt-3 text-xs leading-5 text-ink/50">
+            {visiblePhotos.length ? `已有 ${visiblePhotos.length} 张照片。` : "还没有照片记录。点击“新增”后再填写照片信息。"}
+          </p>
+        ) : null}
+
+        {(!props.deferUploadForm || uploadOpen) ? (
+          <div className={props.deferUploadForm ? "fixed inset-0 z-40 flex items-end bg-ink/35 p-3 backdrop-blur-sm" : ""}>
+            <div className={props.deferUploadForm ? "max-h-[88vh] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-2xl" : "mt-4"}>
+              {props.deferUploadForm ? (
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-ink">新增阶段照片</h3>
+                    <p className="mt-1 text-xs leading-5 text-ink/55">保存后会变成独立照片卡片。</p>
+                  </div>
+                  <button
+                    className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
+                    onClick={() => setUploadOpen(false)}
+                    type="button"
+                  >
+                    关闭
+                  </button>
+                </div>
+              ) : null}
+              <PhotoUploadForm
+                draft={draft}
+                message={message}
+                onDraftChange={setDraft}
+                onFileChange={setSelectedFile}
+                onSubmit={uploadPhoto}
+                pending={pending}
+                selectedFile={selectedFile}
+                dateLocked={Boolean(props.embeddedDate)}
+              />
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-sm">
@@ -338,10 +290,123 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
           />
         )) : (
           <div className="rounded-lg border border-ink/10 bg-white/80 p-4 text-sm leading-6 text-ink/60">
-            {props.embeddedDate ? "这一天还没有照片记录，可以在上方补传。" : "还没有照片记录。可以从当前阶段开始拍一张正面照，后续每次换期或复诊前补充同角度照片。"}
+            {props.embeddedDate ? "这一天还没有照片记录。" : "还没有照片记录。可以从当前阶段开始拍一张正面照，后续每次换期或复诊前补充同角度照片。"}
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function PhotoUploadForm(props: {
+  draft: UploadDraft;
+  selectedFile: File | null;
+  message: string | null;
+  pending: boolean;
+  dateLocked: boolean;
+  onDraftChange: (draft: UploadDraft) => void;
+  onFileChange: (file: File | null) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <label className="block text-sm font-medium text-ink">
+        拍摄日期
+        <input
+          className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+          disabled={props.dateLocked}
+          onChange={(event) => props.onDraftChange({ ...props.draft, date: event.target.value })}
+          type="date"
+          value={props.draft.date}
+        />
+      </label>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block text-sm font-medium text-ink">
+          阶段
+          <input
+            className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+            maxLength={80}
+            onChange={(event) => props.onDraftChange({ ...props.draft, stageName: event.target.value })}
+            placeholder="如：第一阶段"
+            value={props.draft.stageName}
+          />
+        </label>
+        <label className="block text-sm font-medium text-ink">
+          当前副数
+          <input
+            className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+            inputMode="numeric"
+            min={1}
+            onChange={(event) => props.onDraftChange({ ...props.draft, trayNumber: event.target.value })}
+            placeholder="如：12"
+            type="number"
+            value={props.draft.trayNumber}
+          />
+        </label>
+      </div>
+
+      <label className="block text-sm font-medium text-ink">
+        拍摄角度
+        <select
+          className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+          onChange={(event) => props.onDraftChange({ ...props.draft, viewType: event.target.value as DentalPhotoViewType })}
+          value={props.draft.viewType}
+        >
+          {viewOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-ink">照片</p>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-dashed border-ink/20 bg-mist/50 px-3 text-sm font-semibold text-ink">
+            拍照上传
+            <input
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={(event) => props.onFileChange(event.target.files?.[0] ?? null)}
+              type="file"
+            />
+          </label>
+          <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-ink/15 bg-white px-3 text-sm font-semibold text-ink">
+            从相册选择
+            <input
+              accept="image/*"
+              className="sr-only"
+              onChange={(event) => props.onFileChange(event.target.files?.[0] ?? null)}
+              type="file"
+            />
+          </label>
+        </div>
+        <p className="text-xs leading-5 text-ink/50">
+          {props.selectedFile ? `已选择：${props.selectedFile.name}` : "可以现场拍照，也可以从手机相册选择已有照片。"}
+        </p>
+      </div>
+
+      <label className="block text-sm font-medium text-ink">
+        备注
+        <textarea
+          className="mt-1 min-h-20 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+          maxLength={1000}
+          onChange={(event) => props.onDraftChange({ ...props.draft, note: event.target.value })}
+          placeholder="如：第12副第3天，感觉右侧咬合更贴合。"
+          value={props.draft.note}
+        />
+      </label>
+
+      <button
+        className="w-full rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={props.pending}
+        onClick={props.onSubmit}
+        type="button"
+      >
+        {props.pending ? "保存中..." : "保存照片记录"}
+      </button>
+      {props.message ? <p className="text-sm text-ink/60">{props.message}</p> : null}
     </div>
   );
 }

@@ -192,6 +192,7 @@ Tasks:
 - Add dental photo records: authenticated photo upload, client-side compression, date/stage/tray/view metadata, photo archive, delete action, and two-photo side-by-side comparison. Implemented and deployed.
 - Refine photo IA: remove the bottom-nav photo tab, embed stage-photo upload in Calendar day detail and History day/session editor, and keep `/photos` as a hidden full archive route. Implemented locally.
 - Refine reminder IA: remove the bottom-nav reminder tab, merge push permission/status and reminder rule explanation into Settings -> 提醒偏好, and redirect the old `/reminders` route to Settings. Implemented locally.
+- Refine daily records UX: make saved daily notes visible as independent cards, support multiple notes per day with edit/delete, and move note/photo creation into modal-style forms instead of always-open inputs. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:

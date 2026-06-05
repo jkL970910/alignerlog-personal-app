@@ -64,6 +64,13 @@
       "when": 1780794000000,
       "tag": "0008_dental_photo_records",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780798800000,
+      "tag": "0009_daily_note_cards",
+      "breakpoints": true
     }
   ]
 }

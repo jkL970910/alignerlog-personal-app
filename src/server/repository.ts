@@ -196,29 +196,53 @@ export async function listDailyNotesForRange(userId: string, startDate: string, 
       gte(dailyNotes.date, startDate),
       lte(dailyNotes.date, endDate)
     ))
-    .orderBy(asc(dailyNotes.date));
+    .orderBy(asc(dailyNotes.date), asc(dailyNotes.createdAt));
 
   return rows.map(mapDailyNote);
 }
 
-export async function upsertDailyNote(userId: string, date: string, note: string) {
+export async function createDailyNote(userId: string, date: string, note: string) {
   const db = getDb();
   const now = new Date();
-  const [updated] = await db.insert(dailyNotes).values({
+  const [created] = await db.insert(dailyNotes).values({
     userId,
     date,
     note,
     createdAt: now,
     updatedAt: now
-  }).onConflictDoUpdate({
-    target: [dailyNotes.userId, dailyNotes.date],
-    set: {
-      note,
-      updatedAt: now
-    }
   }).returning();
 
+  return mapDailyNote(created);
+}
+
+export async function updateDailyNote(userId: string, noteId: string, note: string) {
+  const db = getDb();
+  const [updated] = await db.update(dailyNotes)
+    .set({
+      note,
+      updatedAt: new Date()
+    })
+    .where(and(eq(dailyNotes.userId, userId), eq(dailyNotes.id, noteId)))
+    .returning();
+
+  if (!updated) {
+    throw new Error("找不到这条札记。");
+  }
+
   return mapDailyNote(updated);
+}
+
+export async function deleteDailyNote(userId: string, noteId: string) {
+  const db = getDb();
+  const [deleted] = await db.delete(dailyNotes)
+    .where(and(eq(dailyNotes.userId, userId), eq(dailyNotes.id, noteId)))
+    .returning();
+
+  if (!deleted) {
+    throw new Error("找不到这条札记。");
+  }
+
+  return mapDailyNote(deleted);
 }
 
 export async function listDentalPhotoRecords(userId: string) {

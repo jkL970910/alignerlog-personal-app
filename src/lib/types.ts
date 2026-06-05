@@ -155,6 +155,7 @@ export type CalendarDay = {
   date: string;
   summary: DailySummary;
   note: DailyNote | null;
+  notes: DailyNote[];
   trayEvents: CalendarTrayEvent[];
   hasData: boolean;
   status: "no_data" | "goal_met" | "close" | "below_goal";

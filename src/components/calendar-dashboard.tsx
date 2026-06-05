@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { addMonths, format, isSameMonth, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Loader2, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 import { formatMinutes, formatPercent } from "@/lib/format";
 import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
-import type { CalendarDay } from "@/lib/types";
+import type { CalendarDay, DailyNote } from "@/lib/types";
 
 import { SetupWarning } from "./setup-warning";
 import { PhotoRecordsDashboard } from "./photo-records-dashboard";
@@ -23,13 +23,18 @@ type LoadState =
   | { status: "ready"; data: CalendarPayload; error?: never }
   | { status: "error"; data?: never; error: string };
 
+type NoteModalState = {
+  mode: "create" | "edit";
+  noteId?: string;
+  draft: string;
+} | null;
+
 export function CalendarDashboard() {
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => getClientDateKey());
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [noteDraft, setNoteDraft] = useState("");
+  const [noteModal, setNoteModal] = useState<NoteModalState>(null);
   const [savingNote, setSavingNote] = useState(false);
-  const [noteSaved, setNoteSaved] = useState(false);
 
   const monthKey = format(monthDate, "yyyy-MM");
 
@@ -56,23 +61,20 @@ export function CalendarDashboard() {
     return state.data.days.find((day) => day.date === selectedDate) ?? state.data.days[0] ?? null;
   }, [selectedDate, state]);
 
-  useEffect(() => {
-    setNoteDraft(selectedDay?.note?.note ?? "");
-    setNoteSaved(false);
-  }, [selectedDay?.date, selectedDay?.note?.note]);
-
   async function saveNote() {
-    if (!selectedDay || state.status !== "ready") {
+    if (!selectedDay || state.status !== "ready" || !noteModal) {
       return;
     }
 
     setSavingNote(true);
 
     try {
-      const response = await fetch("/api/notes", {
-        method: "PATCH",
+      const response = await fetch(noteModal.mode === "edit" ? `/api/notes/${noteModal.noteId}` : "/api/notes", {
+        method: noteModal.mode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: selectedDay.date, note: noteDraft })
+        body: JSON.stringify(noteModal.mode === "edit"
+          ? { note: noteModal.draft }
+          : { date: selectedDay.date, note: noteModal.draft })
       });
       const payload = await response.json();
 
@@ -85,13 +87,46 @@ export function CalendarDashboard() {
         data: {
           ...state.data,
           days: state.data.days.map((day) => (
-            day.date === selectedDay.date ? { ...day, note: payload.note } : day
+            day.date === selectedDay.date ? mergeDayNote(day, payload.note) : day
           ))
         }
       });
-      setNoteSaved(true);
+      setNoteModal(null);
     } catch (error) {
       setState({ status: "error", error: error instanceof Error ? error.message : "无法保存日记。" });
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
+  async function deleteNote(noteId: string) {
+    if (!selectedDay || state.status !== "ready") {
+      return;
+    }
+
+    setSavingNote(true);
+
+    try {
+      const response = await fetch(`/api/notes/${noteId}`, {
+        method: "DELETE"
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "无法删除札记。");
+      }
+
+      setState({
+        status: "ready",
+        data: {
+          ...state.data,
+          days: state.data.days.map((day) => (
+            day.date === selectedDay.date ? removeDayNote(day, noteId) : day
+          ))
+        }
+      });
+    } catch (error) {
+      setState({ status: "error", error: error instanceof Error ? error.message : "无法删除札记。" });
     } finally {
       setSavingNote(false);
     }
@@ -205,46 +240,81 @@ export function CalendarDashboard() {
                 <div>
                   <p className="font-semibold text-ink">当日记录</p>
                   <p className="mt-1 text-xs leading-5 text-ink/55">
-                    {selectedDay.note?.note ? "已有札记" : "未写札记"} · 可补传阶段照片
+                    {selectedDay.notes.length ? `${selectedDay.notes.length} 条札记` : "暂无札记"} · 可补传阶段照片
                   </p>
                 </div>
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink/60">展开</span>
               </div>
             </summary>
-            <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="daily-note">
-              <span className="flex items-center justify-between gap-2">
-                <span>当日札记</span>
-                {selectedDay.note?.note ? <span className="text-xs font-normal text-sage">已保存札记</span> : null}
-              </span>
-              <textarea
-                className="mt-2 min-h-24 w-full resize-none rounded-md border border-ink/10 bg-white px-3 py-2 text-ink outline-none focus:border-mint"
-                id="daily-note"
-                onChange={(event) => setNoteDraft(event.target.value)}
-                placeholder="记录进食节奏、牙套贴合、酸痛感，或任何值得回看的细节。"
-                value={noteDraft}
-              />
-            </label>
-            <p className="mt-2 text-xs leading-5 text-ink/50">
-              保存后会显示在当前日期详情里；日历日期下方的小圆点表示该日有札记。
-            </p>
-            <button
-              className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
-              disabled={savingNote}
-              onClick={saveNote}
-              type="button"
-            >
-              {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {noteSaved ? "已保存" : "保存札记"}
-            </button>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-semibold text-ink">当日札记</h3>
+                <button
+                  className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"
+                  onClick={() => setNoteModal({ mode: "create", draft: "" })}
+                  type="button"
+                >
+                  新增札记
+                </button>
+              </div>
+              {selectedDay.notes.length ? selectedDay.notes.map((note) => (
+                <NoteCard
+                  key={note.id}
+                  note={note}
+                  onDelete={() => deleteNote(note.id)}
+                  onEdit={() => setNoteModal({ mode: "edit", noteId: note.id, draft: note.note })}
+                  pending={savingNote}
+                />
+              )) : (
+                <p className="rounded-md bg-white p-3 text-sm leading-6 text-ink/60">
+                  还没有札记。点击“新增札记”后填写，保存后会变成独立卡片。
+                </p>
+              )}
+            </div>
             <div className="mt-4">
               <PhotoRecordsDashboard
                 compact
+                deferUploadForm
                 embeddedDate={selectedDay.date}
                 helper="给当前日期补传阶段照片；建议保持同角度、同光线，方便后续对比。"
                 title="阶段照片"
               />
             </div>
           </details>
+          {noteModal ? (
+            <div className="fixed inset-0 z-40 flex items-end bg-ink/35 p-3 backdrop-blur-sm">
+              <div className="w-full rounded-xl bg-white p-4 shadow-2xl">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-ink">{noteModal.mode === "edit" ? "修改札记" : "新增札记"}</h3>
+                    <p className="mt-1 text-xs leading-5 text-ink/55">保存后会显示为当日记录卡片。</p>
+                  </div>
+                  <button
+                    className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
+                    onClick={() => setNoteModal(null)}
+                    type="button"
+                  >
+                    关闭
+                  </button>
+                </div>
+                <textarea
+                  className="min-h-36 w-full resize-none rounded-md border border-ink/10 bg-paper px-3 py-2 text-ink outline-none focus:border-mint"
+                  onChange={(event) => setNoteModal({ ...noteModal, draft: event.target.value })}
+                  placeholder="记录进食节奏、牙套贴合、酸痛感，或任何值得回看的细节。"
+                  value={noteModal.draft}
+                />
+                <button
+                  className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+                  disabled={savingNote || !noteModal.draft.trim()}
+                  onClick={saveNote}
+                  type="button"
+                >
+                  {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {noteModal.mode === "edit" ? "保存修改" : "保存札记"}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
     </div>
@@ -258,6 +328,75 @@ function Detail({ label, value }: { label: string; value: string }) {
       <p className="mt-1 font-semibold text-ink">{value}</p>
     </div>
   );
+}
+
+function NoteCard(props: {
+  note: DailyNote;
+  pending: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <article className="rounded-md border border-ink/10 bg-white p-3">
+      <p className="whitespace-pre-wrap text-sm leading-6 text-ink/75">{props.note.note}</p>
+      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-ink/45">
+        <span>{formatSavedAt(props.note.updatedAt)}</span>
+        <div className="flex gap-2">
+          <button
+            className="rounded-full border border-ink/10 px-3 py-1 font-semibold text-ink"
+            disabled={props.pending}
+            onClick={props.onEdit}
+            type="button"
+          >
+            修改
+          </button>
+          <button
+            className="rounded-full border border-coral/20 px-3 py-1 font-semibold text-coral"
+            disabled={props.pending}
+            onClick={props.onDelete}
+            type="button"
+          >
+            删除
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function mergeDayNote(day: CalendarDay, note: DailyNote): CalendarDay {
+  const notes = day.notes.some((item) => item.id === note.id)
+    ? day.notes.map((item) => item.id === note.id ? note : item)
+    : [...day.notes, note];
+
+  return {
+    ...day,
+    note: notes[0] ?? null,
+    notes,
+    hasData: true,
+    status: day.status === "no_data" ? "below_goal" : day.status
+  };
+}
+
+function removeDayNote(day: CalendarDay, noteId: string): CalendarDay {
+  const notes = day.notes.filter((note) => note.id !== noteId);
+
+  return {
+    ...day,
+    note: notes[0] ?? null,
+    notes,
+    hasData: day.summary.hasData || notes.length > 0,
+    status: day.summary.hasData ? day.status : notes.length > 0 ? "below_goal" : "no_data"
+  };
+}
+
+function formatSavedAt(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
 }
 
 function getDayStatusClass(day: CalendarDay) {
