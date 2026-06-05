@@ -1,8 +1,8 @@
 "use client";
 
 import { addDays, format, isValid, parseISO, subDays } from "date-fns";
-import { FormEvent, useEffect, useState } from "react";
-import { Download, Loader2, Save, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Loader2, Sparkles } from "lucide-react";
 
 import type { PlanProgress, ReminderSettings, TreatmentExceptionEvent, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
 import { formatMinutes } from "@/lib/format";
@@ -106,7 +106,9 @@ function createImportFromSeries(series: TreatmentSeries, dailyGoalMinutes: numbe
 export function SettingsDashboard() {
   const [settings, setSettings] = useState<SettingsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [goalPending, setGoalPending] = useState(false);
+  const [goalDirty, setGoalDirty] = useState(false);
+  const [goalMessage, setGoalMessage] = useState<string | null>(null);
   const [importDraft, setImportDraft] = useState<ImportState>(() => createDefaultImport());
   const [importPreview, setImportPreview] = useState<TreatmentPlanImportPreview | null>(null);
   const [importPending, setImportPending] = useState(false);
@@ -183,14 +185,13 @@ export function SettingsDashboard() {
     setImportDraftInitialized(true);
   }, [importDraftInitialized, settings]);
 
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  async function saveDailyGoal() {
     if (!settings) {
       return;
     }
 
-    setPending(true);
+    setGoalPending(true);
+    setGoalMessage(null);
 
     try {
       const response = await fetch("/api/settings", {
@@ -203,27 +204,22 @@ export function SettingsDashboard() {
             totalTrays: settings.treatmentPlan.totalTrays,
             daysPerTray: settings.treatmentPlan.daysPerTray,
             dailyGoalMinutes: settings.treatmentPlan.dailyGoalMinutes
-          },
-          reminderSettings: {
-            enableMealReminder: settings.reminderSettings.enableMealReminder,
-            mealReminderMinutes: settings.reminderSettings.mealReminderMinutes,
-            enableBedtimeReminder: settings.reminderSettings.enableBedtimeReminder,
-            bedtimeReminderTime: settings.reminderSettings.bedtimeReminderTime,
-            enableTrayChangeReminder: settings.reminderSettings.enableTrayChangeReminder
           }
         })
       });
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload.error ?? "无法保存设置。");
+        throw new Error(payload.error ?? "无法保存每日目标。");
       }
 
       setSettings(payload);
+      setGoalDirty(false);
+      setGoalMessage("已保存每日目标。");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "无法保存设置。");
+      setGoalMessage(err instanceof Error ? err.message : "无法保存每日目标。");
     } finally {
-      setPending(false);
+      setGoalPending(false);
     }
   }
 
@@ -473,7 +469,7 @@ export function SettingsDashboard() {
   const exportTimeZone = encodeURIComponent(timeZone);
 
   return (
-    <form className="space-y-4" onSubmit={save}>
+    <div className="space-y-4">
       <section className="rounded-md border border-amber/20 bg-white p-4 shadow-soft">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-mist text-amber">
@@ -497,16 +493,35 @@ export function SettingsDashboard() {
             value: settings.treatmentPlan.dailyGoalMinutes,
             options: minuteOptions(),
             formatValue: formatMinutes,
-            onSelect: (value) => setSettings({
-              ...settings,
-              treatmentPlan: {
-                ...settings.treatmentPlan,
-                dailyGoalMinutes: value
-              }
-            })
+            onSelect: (value) => {
+              setSettings({
+                ...settings,
+                treatmentPlan: {
+                  ...settings.treatmentPlan,
+                  dailyGoalMinutes: value
+                }
+              });
+              setGoalDirty(true);
+              setGoalMessage(null);
+            }
           })}
           value={formatMinutes(settings.treatmentPlan.dailyGoalMinutes)}
         />
+        {goalDirty ? (
+          <p className="mt-3 rounded-md bg-amber/10 p-2 text-xs leading-5 text-ink/60">
+            每日目标已修改，点击下方按钮后才会保存到云端。
+          </p>
+        ) : null}
+        {goalMessage ? <p className={`mt-3 text-xs ${goalMessage.startsWith("已") ? "text-sage" : "text-coral"}`}>{goalMessage}</p> : null}
+        <button
+          className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+          disabled={goalPending || !goalDirty}
+          onClick={saveDailyGoal}
+          type="button"
+        >
+          {goalPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          保存每日目标
+        </button>
 
         {hasRealPlan && settings.activeSeries && progress ? (
           <div className="mt-4 rounded-md border border-mint/20 bg-mint/10 p-3">
@@ -1035,15 +1050,6 @@ export function SettingsDashboard() {
         </div>
       </section>
 
-      <button
-        className="flex min-h-14 w-full items-center justify-center gap-2 rounded-md bg-ink px-5 text-base font-semibold text-white disabled:opacity-60"
-        disabled={pending}
-        type="submit"
-      >
-        {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-        保存设置
-      </button>
-
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-ink">账户</h2>
         <p className="mt-2 text-sm leading-6 text-ink/60">
@@ -1055,7 +1061,7 @@ export function SettingsDashboard() {
       </section>
 
       <NumberPickerSheet picker={numberPicker} onClose={() => setNumberPicker(null)} />
-    </form>
+    </div>
   );
 }
 
