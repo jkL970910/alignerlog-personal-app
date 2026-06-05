@@ -110,6 +110,19 @@ describe("calculateDailySummary", () => {
     expect(summary.goalMet).toBe(false);
   });
 
+  it("can continue current-day wearing progress after tracking has started", () => {
+    const summary = calculateDailySummary({
+      date: "2026-06-01",
+      sessions: [],
+      treatmentPlan,
+      now: new Date("2026-06-01T12:00:00.000Z"),
+      hasTrackingStarted: true
+    });
+
+    expect(summary.hasData).toBe(true);
+    expect(summary.wearMinutes).toBe(720);
+  });
+
   it("uses the local day elapsed time for current-day wear", () => {
     const summary = calculateDailySummary({
       date: "2026-06-03",

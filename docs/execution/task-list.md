@@ -184,6 +184,9 @@ Tasks:
 - Simplify Reminders page into an action-first layout: current device push, current reminder rule, and collapsed work-principle explanation. Implemented locally.
 - Add manual off-tray backfill for missed taps and expand return-reminder interval options from short breaks to longer meals. Implemented locally.
 - Make manual off-tray backfill look like an explicit CTA instead of a static display card. Implemented locally.
+- Fix Today local-day rollover progress so started users continue accumulating today's wear time without needing a new toggle action. Implemented locally.
+- Split manual correction into forgot-take-off and forgot-put-back modes. Implemented locally.
+- Improve Today next-change date presentation to avoid narrow ISO date wrapping. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:

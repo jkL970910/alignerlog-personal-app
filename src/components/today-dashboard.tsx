@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Clock, Loader2, ShieldCheck, Utensils } from "lucide-react";
 
 import { formatMinutes, formatPercent } from "@/lib/format";
@@ -15,10 +15,13 @@ type ApiState =
   | { status: "ready"; data: AppSnapshot; error?: never }
   | { status: "error"; data?: never; error: string };
 
+type ManualMode = "closed_session" | "forgot_put_back";
+
 export function TodayDashboard() {
   const [state, setState] = useState<ApiState>({ status: "loading" });
   const [pending, setPending] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [manualMode, setManualMode] = useState<ManualMode>("closed_session");
   const [manualStart, setManualStart] = useState("");
   const [manualEnd, setManualEnd] = useState("");
   const [manualPending, setManualPending] = useState(false);
@@ -105,8 +108,9 @@ export function TodayDashboard() {
           })
         },
         body: JSON.stringify({
+          mode: manualMode,
           startLocal: manualStart,
-          endLocal: manualEnd,
+          endLocal: manualMode === "closed_session" ? manualEnd : undefined,
           reason: "other"
         })
       });
@@ -125,7 +129,7 @@ export function TodayDashboard() {
           todaySummary: payload.todaySummary
         }
       });
-      setManualMessage("已补记这段取下时间。");
+      setManualMessage(manualMode === "closed_session" ? "已补记这段取下时间。" : "已补记取下时间，当前状态已改为已取下。");
       setManualStart("");
       setManualEnd("");
       setManualOpen(false);
@@ -168,9 +172,10 @@ export function TodayDashboard() {
               </h2>
               <p className="mt-1 text-sm text-ink/60">{getProgressText(planProgress)}</p>
             </div>
-            <div className="rounded-md bg-mist px-3 py-2 text-right">
+            <div className="min-w-[5.75rem] rounded-md bg-mist px-3 py-2 text-center">
               <p className="text-xs text-ink/50">下次换期</p>
-              <p className="font-semibold text-ink">{planProgress.nextChangeDate ?? "待确认"}</p>
+              <p className="mt-1 font-semibold leading-tight text-ink">{formatDateShort(planProgress.nextChangeDate)}</p>
+              {planProgress.nextChangeDate ? <p className="mt-0.5 text-xs text-ink/45">{formatWeekday(planProgress.nextChangeDate)}</p> : null}
             </div>
           </div>
         </section>
@@ -216,7 +221,7 @@ export function TodayDashboard() {
         <div>
           <h2 className="font-semibold text-ink">补记取下时间</h2>
           <p className="mt-1 text-sm leading-6 text-ink/60">
-            忘记点击“我取下牙套了”时，可以补回一段已经结束的未佩戴时间。
+            用于修正忘记点击取下或忘记点击戴回的情况。
           </p>
         </div>
         {!manualOpen ? (
@@ -225,13 +230,29 @@ export function TodayDashboard() {
             onClick={() => setManualOpen(true)}
             type="button"
           >
-            补记一段取下时间
+            打开补记
           </button>
         ) : null}
         {manualOpen ? (
           <div className="mt-4 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                className={`min-h-11 rounded-md border px-3 text-sm font-semibold ${manualMode === "closed_session" ? "border-ink bg-ink text-white" : "border-ink/10 text-ink"}`}
+                onClick={() => setManualMode("closed_session")}
+                type="button"
+              >
+                忘记点取下
+              </button>
+              <button
+                className={`min-h-11 rounded-md border px-3 text-sm font-semibold ${manualMode === "forgot_put_back" ? "border-ink bg-ink text-white" : "border-ink/10 text-ink"}`}
+                onClick={() => setManualMode("forgot_put_back")}
+                type="button"
+              >
+                忘记点戴回
+              </button>
+            </div>
             <label className="block text-sm font-medium text-ink/70">
-              取下时间
+              {manualMode === "closed_session" ? "实际取下时间" : "实际取下时间"}
               <input
                 className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
                 max={toDateTimeLocalValue(new Date())}
@@ -240,27 +261,31 @@ export function TodayDashboard() {
                 value={manualStart}
               />
             </label>
-            <label className="block text-sm font-medium text-ink/70">
-              戴回时间
-              <input
-                className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
-                max={toDateTimeLocalValue(new Date())}
-                onChange={(event) => setManualEnd(event.target.value)}
-                type="datetime-local"
-                value={manualEnd}
-              />
-            </label>
+            {manualMode === "closed_session" ? (
+              <label className="block text-sm font-medium text-ink/70">
+                实际戴回时间
+                <input
+                  className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
+                  max={toDateTimeLocalValue(new Date())}
+                  onChange={(event) => setManualEnd(event.target.value)}
+                  type="datetime-local"
+                  value={manualEnd}
+                />
+              </label>
+            ) : null}
             <p className="text-xs leading-5 text-ink/50">
-              只用于补录过去已经结束的取下时段；不会改变当前“佩戴中/已取下”状态，也不会创建推送提醒。
+              {manualMode === "closed_session"
+                ? "适合忘记点“我取下牙套了”，但后来已经戴回的情况；会补回一段已结束的未佩戴时间。"
+                : "适合已经取下牙套但忘记点击按钮的情况；保存后当前状态会变成“已取下”，并从这个时间开始计时。"}
             </p>
             <button
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
-              disabled={manualPending || !manualStart || !manualEnd}
+              disabled={manualPending || !manualStart || (manualMode === "closed_session" && !manualEnd)}
               onClick={saveManualSession}
               type="button"
             >
               {manualPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              保存补记
+              {manualMode === "closed_session" ? "保存已结束时段" : "保存为当前已取下"}
             </button>
             <button
               className="flex min-h-11 w-full items-center justify-center rounded-md border border-ink/10 px-4 text-sm font-semibold text-ink"
@@ -268,6 +293,7 @@ export function TodayDashboard() {
                 setManualOpen(false);
                 setManualStart("");
                 setManualEnd("");
+                setManualMode("closed_session");
               }}
               type="button"
             >
@@ -302,6 +328,22 @@ function toDateTimeLocalValue(date: Date) {
   const offsetMs = date.getTimezoneOffset() * 60_000;
 
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function formatDateShort(dateKey: string | null) {
+  if (!dateKey) {
+    return "待确认";
+  }
+
+  const [, month, day] = dateKey.split("-").map(Number);
+
+  return `${month}月${day}日`;
+}
+
+function formatWeekday(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00`);
+
+  return new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(date);
 }
 
 function getProgressText(progress: NonNullable<AppSnapshot["planProgress"]>) {

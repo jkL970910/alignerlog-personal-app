@@ -51,7 +51,8 @@ export async function POST(request: Request) {
       sessions,
       treatmentPlan,
       now,
-      timeZone
+      timeZone,
+      hasTrackingStarted: true
     });
 
     return apiJson({

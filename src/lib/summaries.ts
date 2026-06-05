@@ -35,6 +35,7 @@ export function calculateDailySummary(params: {
   treatmentPlan: Pick<TreatmentPlan, "dailyGoalMinutes" | "currentTrayNumber">;
   now?: Date;
   timeZone?: string;
+  hasTrackingStarted?: boolean;
 }): DailySummary {
   const now = params.now ?? new Date();
   const timeZone = params.timeZone ?? "UTC";
@@ -52,7 +53,7 @@ export function calculateDailySummary(params: {
   const longestOffSessionMinutes = offParts
     .filter((part) => part.date === params.date)
     .reduce((longest, part) => Math.max(longest, part.minutes), 0);
-  const hasData = sessionCount > 0 || offMinutes > 0;
+  const hasData = Boolean(params.hasTrackingStarted) || sessionCount > 0 || offMinutes > 0;
   const dayElapsed = elapsedMinutesInDay(params.date, now, timeZone);
   const wearMinutes = hasData ? clamp(dayElapsed - offMinutes, 0, minutesInDay(params.date, timeZone)) : 0;
 

@@ -327,6 +327,71 @@ export async function createManualOffTraySession(params: {
   return mapOffTraySession(session);
 }
 
+export async function startManualActiveOffTraySession(params: {
+  userId: string;
+  startAt: Date;
+  reason?: OffTrayReason;
+}) {
+  const now = new Date();
+
+  if (params.startAt.getTime() > now.getTime()) {
+    throw new Error("补记时间不能晚于当前时间。");
+  }
+
+  const db = getDb();
+  const state = await getWearState(params.userId);
+  const active = await getActiveSession(params.userId);
+
+  if (active || (state && !state.isWearing)) {
+    throw new Error("当前已经是取下状态，不需要补记为已取下。");
+  }
+
+  const overlapping = await db.select().from(offTraySessions)
+    .where(and(
+      eq(offTraySessions.userId, params.userId),
+      lt(offTraySessions.startAt, now),
+      or(isNull(offTraySessions.endAt), gt(offTraySessions.endAt, params.startAt))
+    ))
+    .limit(1);
+
+  if (overlapping.length > 0) {
+    throw new Error("补记时间与已有取下记录重叠，请调整时间。");
+  }
+
+  const [session] = await db.insert(offTraySessions).values({
+    userId: params.userId,
+    startAt: params.startAt,
+    endAt: null,
+    reason: params.reason ?? "other",
+    reminderAt: null,
+    reminderStatus: "none",
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+
+  const nextState = {
+    isWearing: false,
+    currentOffSessionId: session.id,
+    lastChangedAt: params.startAt,
+    updatedAt: now
+  };
+  const [updatedState] = state
+    ? await db.update(wearStates)
+      .set(nextState)
+      .where(eq(wearStates.userId, params.userId))
+      .returning()
+    : await db.insert(wearStates).values({
+      userId: params.userId,
+      ...nextState
+    }).returning();
+  await scheduleMealReminderJob(params.userId, session.id, params.startAt);
+
+  return {
+    session: mapOffTraySession(session),
+    wearState: mapWearState(updatedState)
+  };
+}
+
 export async function createWearActionLog(params: {
   userId: string;
   action: WearAction;

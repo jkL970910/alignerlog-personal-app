@@ -6,6 +6,7 @@ import { apiError, apiJson } from "@/server/http";
 import {
   createManualOffTraySession,
   createWearActionLog,
+  startManualActiveOffTraySession,
   getActiveSession,
   getOrCreateTreatmentPlan,
   getOrCreateWearState,
@@ -16,8 +17,9 @@ import { getRequestTimeZone } from "@/server/time-zone";
 export const runtime = "nodejs";
 
 type ManualSessionRequest = {
+  mode?: "closed_session" | "forgot_put_back";
   startLocal: string;
-  endLocal: string;
+  endLocal?: string;
   reason?: OffTrayReason;
 };
 
@@ -26,13 +28,22 @@ export async function POST(request: Request) {
     const userId = await requireCurrentUserId();
     const timeZone = getRequestTimeZone(request);
     const body = await request.json() as ManualSessionRequest;
-    const session = await createManualOffTraySession({
-      userId,
-      startAt: localDateTimeToUtc(body.startLocal, timeZone),
-      endAt: localDateTimeToUtc(body.endLocal, timeZone),
-      reason: body.reason
-    });
-    const wearState = await getOrCreateWearState(userId);
+    const mode = body.mode ?? "closed_session";
+    const startAt = localDateTimeToUtc(body.startLocal, timeZone);
+    const result = mode === "forgot_put_back"
+      ? await startManualActiveOffTraySession({
+        userId,
+        startAt,
+        reason: body.reason
+      })
+      : await createManualOffTraySession({
+        userId,
+        startAt,
+        endAt: localDateTimeToUtc(body.endLocal ?? "", timeZone),
+        reason: body.reason
+      });
+    const session = "session" in result ? result.session : result;
+    const wearState = "wearState" in result ? result.wearState : await getOrCreateWearState(userId);
     await createWearActionLog({
       userId,
       action: "start",
@@ -56,7 +67,8 @@ export async function POST(request: Request) {
       sessions,
       treatmentPlan,
       now,
-      timeZone
+      timeZone,
+      hasTrackingStarted: true
     });
 
     return apiJson({

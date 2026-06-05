@@ -51,7 +51,8 @@ export async function GET(request: Request) {
       sessions,
       treatmentPlan,
       now,
-      timeZone
+      timeZone,
+      hasTrackingStarted: Boolean(persistedWearState)
     });
     const planProgress = activeSeries ? calculatePlanProgress({
       status: activeSeries.status,
