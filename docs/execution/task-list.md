@@ -235,7 +235,7 @@ Tasks:
 - Add photo archive and two-photo comparison view. Implemented locally.
 - Embed photo upload into Calendar day detail and History previous-session editor. Implemented locally.
 - Remove photo from bottom navigation to keep mobile IA at five primary tabs. Implemented locally.
-- Add object storage migration path if photo volume grows beyond small personal use. Planned.
+- Add object storage migration path if photo volume grows beyond small personal use. Planned; current recommendation is Cloudflare R2 first for larger free quota and free egress, Vercel Blob second for simplest Vercel integration, while keeping Postgres data URLs only as a tightly capped personal MVP bridge.
 - Add AI-assisted descriptive comparison only after strict medical-safety copy and no-diagnosis boundary are in place. Planned.
 
 Acceptance:
