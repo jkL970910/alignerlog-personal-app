@@ -234,21 +234,15 @@ export function CalendarDashboard() {
             </div>
           ) : null}
 
-          <details className="mt-4 rounded-md border border-ink/10 bg-paper p-3">
-            <summary className="cursor-pointer list-none">
+          <div className="mt-4 space-y-4">
+            <section className="rounded-md border border-ink/10 bg-paper p-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-ink">当日记录</p>
+                  <h3 className="font-semibold text-ink">当日札记</h3>
                   <p className="mt-1 text-xs leading-5 text-ink/55">
-                    {selectedDay.notes.length ? `${selectedDay.notes.length} 条札记` : "暂无札记"} · 可补传阶段照片
+                    {selectedDay.notes.length ? `${selectedDay.notes.length} 条已保存札记` : "暂无札记"}
                   </p>
                 </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink/60">展开</span>
-              </div>
-            </summary>
-            <div className="mt-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-semibold text-ink">当日札记</h3>
                 <button
                   className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"
                   onClick={() => setNoteModal({ mode: "create", draft: "" })}
@@ -257,30 +251,35 @@ export function CalendarDashboard() {
                   新增札记
                 </button>
               </div>
-              {selectedDay.notes.length ? selectedDay.notes.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  onDelete={() => deleteNote(note.id)}
-                  onEdit={() => setNoteModal({ mode: "edit", noteId: note.id, draft: note.note })}
-                  pending={savingNote}
-                />
-              )) : (
-                <p className="rounded-md bg-white p-3 text-sm leading-6 text-ink/60">
-                  还没有札记。点击“新增札记”后填写，保存后会变成独立卡片。
-                </p>
-              )}
-            </div>
-            <div className="mt-4">
+
+              <div className="mt-4 space-y-3">
+                {selectedDay.notes.length ? selectedDay.notes.map((note) => (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    onDelete={() => deleteNote(note.id)}
+                    onEdit={() => setNoteModal({ mode: "edit", noteId: note.id, draft: note.note })}
+                    pending={savingNote}
+                  />
+                )) : (
+                  <p className="rounded-md bg-white p-3 text-sm leading-6 text-ink/60">
+                    还没有札记。点击“新增札记”后填写，保存后会变成独立卡片。
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section>
               <PhotoRecordsDashboard
                 compact
                 deferUploadForm
                 embeddedDate={selectedDay.date}
-                helper="给当前日期补传阶段照片；建议保持同角度、同光线，方便后续对比。"
+                hideCompare
+                helper="已保存照片会直接展示；新增照片时再打开表单。建议保持同角度、同光线，方便后续对比。"
                 title="阶段照片"
               />
-            </div>
-          </details>
+            </section>
+          </div>
           {noteModal ? (
             <div className="fixed inset-0 z-40 flex items-end bg-ink/35 p-3 backdrop-blur-sm">
               <div className="w-full rounded-xl bg-white p-4 shadow-2xl">

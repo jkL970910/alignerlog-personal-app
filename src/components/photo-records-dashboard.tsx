@@ -31,6 +31,7 @@ type PhotoRecordsDashboardProps = {
   title?: string;
   helper?: string;
   deferUploadForm?: boolean;
+  hideCompare?: boolean;
 };
 
 const viewOptions: Array<{ value: DentalPhotoViewType; label: string }> = [
@@ -172,6 +173,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
     .map((id) => photos.find((photo) => photo.id === id))
     .filter((photo): photo is DentalPhotoRecord => Boolean(photo)), [photos, selectedIds]);
   const visiblePhotos = props.embeddedDate ? photos.filter((photo) => photo.date === props.embeddedDate) : photos;
+  const showInlinePhotoList = Boolean(props.compact && props.deferUploadForm);
 
   if (error) {
     return <SetupWarning message={error} />;
@@ -248,8 +250,28 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
             </div>
           </div>
         ) : null}
+
+        {showInlinePhotoList ? (
+          <div className="mt-4 space-y-3">
+            {visiblePhotos.length ? visiblePhotos.map((photo) => (
+              <PhotoCard
+                key={photo.id}
+                onDelete={() => deletePhoto(photo.id)}
+                onToggleCompare={() => toggleCompare(photo.id, selectedIds, setSelectedIds)}
+                photo={photo}
+                selected={selectedIds.includes(photo.id)}
+                showCompareAction={!props.hideCompare}
+              />
+            )) : (
+              <div className="rounded-lg border border-dashed border-ink/15 bg-mist/50 p-4 text-sm leading-6 text-ink/60">
+                这一天还没有照片记录。点击“新增”后可以拍照或从相册选择已有照片。
+              </div>
+            )}
+          </div>
+        ) : null}
       </section>
 
+      {!props.hideCompare ? (
       <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -277,7 +299,9 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
           </p>
         )}
       </section>
+      ) : null}
 
+      {!showInlinePhotoList ? (
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-ink">{props.compact ? "当天照片" : "照片档案"}</h2>
         {visiblePhotos.length ? visiblePhotos.map((photo) => (
@@ -294,6 +318,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
           </div>
         )}
       </section>
+      ) : null}
     </div>
   );
 }
@@ -416,6 +441,7 @@ function PhotoCard(props: {
   selected: boolean;
   onToggleCompare: () => void;
   onDelete: () => void;
+  showCompareAction?: boolean;
 }) {
   return (
     <article className={`overflow-hidden rounded-lg border bg-white shadow-sm ${props.selected ? "border-rose ring-2 ring-rose/20" : "border-ink/10"}`}>
@@ -435,13 +461,15 @@ function PhotoCard(props: {
           </button>
         </div>
         {props.photo.note ? <p className="rounded-md bg-mist/60 p-3 text-sm leading-6 text-ink/70">{props.photo.note}</p> : null}
-        <button
-          className={`w-full rounded-md px-3 py-2 text-sm font-semibold ${props.selected ? "bg-rose/15 text-rose" : "bg-mist text-ink"}`}
-          onClick={props.onToggleCompare}
-          type="button"
-        >
-          {props.selected ? "已加入对比" : "选择对比"}
-        </button>
+        {props.showCompareAction === false ? null : (
+          <button
+            className={`w-full rounded-md px-3 py-2 text-sm font-semibold ${props.selected ? "bg-rose/15 text-rose" : "bg-mist text-ink"}`}
+            onClick={props.onToggleCompare}
+            type="button"
+          >
+            {props.selected ? "已加入对比" : "选择对比"}
+          </button>
+        )}
       </div>
     </article>
   );
