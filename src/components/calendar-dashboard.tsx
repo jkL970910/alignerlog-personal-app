@@ -199,39 +199,52 @@ export function CalendarDashboard() {
             </div>
           ) : null}
 
-          <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="daily-note">
-            <span className="flex items-center justify-between gap-2">
-              <span>当日札记</span>
-              {selectedDay.note?.note ? <span className="text-xs font-normal text-sage">已保存札记</span> : null}
-            </span>
-            <textarea
-              className="mt-2 min-h-28 w-full resize-none rounded-md border border-ink/10 bg-paper px-3 py-2 text-ink outline-none focus:border-mint"
-              id="daily-note"
-              onChange={(event) => setNoteDraft(event.target.value)}
-              placeholder="记录进食节奏、牙套贴合、酸痛感，或任何值得回看的细节。"
-              value={noteDraft}
-            />
-          </label>
-          <p className="mt-2 text-xs leading-5 text-ink/50">
-            保存后会显示在当前日期详情里；日历日期下方的小圆点表示该日有札记。
-          </p>
-          <button
-            className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
-            disabled={savingNote}
-            onClick={saveNote}
-            type="button"
-          >
-            {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {noteSaved ? "已保存" : "保存札记"}
-          </button>
-          <div className="mt-4">
-            <PhotoRecordsDashboard
-              compact
-              embeddedDate={selectedDay.date}
-              helper="给当前日期补传阶段照片；建议保持同角度、同光线，方便后续对比。"
-              title="阶段照片"
-            />
-          </div>
+          <details className="mt-4 rounded-md border border-ink/10 bg-paper p-3">
+            <summary className="cursor-pointer list-none">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-ink">当日记录</p>
+                  <p className="mt-1 text-xs leading-5 text-ink/55">
+                    {selectedDay.note?.note ? "已有札记" : "未写札记"} · 可补传阶段照片
+                  </p>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink/60">展开</span>
+              </div>
+            </summary>
+            <label className="mt-4 block text-sm font-medium text-ink/70" htmlFor="daily-note">
+              <span className="flex items-center justify-between gap-2">
+                <span>当日札记</span>
+                {selectedDay.note?.note ? <span className="text-xs font-normal text-sage">已保存札记</span> : null}
+              </span>
+              <textarea
+                className="mt-2 min-h-24 w-full resize-none rounded-md border border-ink/10 bg-white px-3 py-2 text-ink outline-none focus:border-mint"
+                id="daily-note"
+                onChange={(event) => setNoteDraft(event.target.value)}
+                placeholder="记录进食节奏、牙套贴合、酸痛感，或任何值得回看的细节。"
+                value={noteDraft}
+              />
+            </label>
+            <p className="mt-2 text-xs leading-5 text-ink/50">
+              保存后会显示在当前日期详情里；日历日期下方的小圆点表示该日有札记。
+            </p>
+            <button
+              className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+              disabled={savingNote}
+              onClick={saveNote}
+              type="button"
+            >
+              {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {noteSaved ? "已保存" : "保存札记"}
+            </button>
+            <div className="mt-4">
+              <PhotoRecordsDashboard
+                compact
+                embeddedDate={selectedDay.date}
+                helper="给当前日期补传阶段照片；建议保持同角度、同光线，方便后续对比。"
+                title="阶段照片"
+              />
+            </div>
+          </details>
         </section>
       ) : null}
     </div>

@@ -419,6 +419,14 @@ export function TodayDashboard() {
         <MetricCard label="最长取下" value={formatMinutes(todaySummary.longestOffSessionMinutes)} />
       </div>
 
+      <button
+        className="flex min-h-11 w-full items-center justify-center rounded-md border border-ink/10 bg-white px-4 text-sm font-semibold text-ink shadow-sm"
+        onClick={() => { window.location.href = "/calendar"; }}
+        type="button"
+      >
+        记录今日札记 / 阶段照片
+      </button>
+
       {!todaySummary.hasData ? (
         <p className="rounded-md border border-amber/20 bg-white/80 p-3 text-xs leading-5 text-ink/60">
           今天还没有真实佩戴记录。第一次点击“我取下牙套了”后，系统才会开始计算今日已戴、取下次数和趋势数据。
