@@ -118,6 +118,9 @@ export function SettingsDashboard() {
   const [numberPicker, setNumberPicker] = useState<NumberPickerState>(null);
   const [timeZone, setTimeZone] = useState(() => getClientTimeZone());
   const [manualTimeZone, setManualTimeZone] = useState(() => isTimeZoneManuallySet());
+  const [reminderPending, setReminderPending] = useState(false);
+  const [reminderDirty, setReminderDirty] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
   const [exceptionOpen, setExceptionOpen] = useState(false);
   const [exceptionPending, setExceptionPending] = useState(false);
   const [exceptionType, setExceptionType] = useState<TreatmentExceptionType>("tray_extension");
@@ -221,6 +224,44 @@ export function SettingsDashboard() {
       setError(err instanceof Error ? err.message : "无法保存设置。");
     } finally {
       setPending(false);
+    }
+  }
+
+  async function saveReminderPreferences() {
+    if (!settings) {
+      return;
+    }
+
+    setReminderPending(true);
+    setReminderMessage(null);
+
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: timeZoneHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          reminderSettings: {
+            enableMealReminder: settings.reminderSettings.enableMealReminder,
+            mealReminderMinutes: settings.reminderSettings.mealReminderMinutes,
+            enableBedtimeReminder: settings.reminderSettings.enableBedtimeReminder,
+            bedtimeReminderTime: settings.reminderSettings.bedtimeReminderTime,
+            enableTrayChangeReminder: settings.reminderSettings.enableTrayChangeReminder
+          }
+        })
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "无法保存提醒偏好。");
+      }
+
+      setSettings(payload);
+      setReminderDirty(false);
+      setReminderMessage("已保存提醒偏好。");
+    } catch (err) {
+      setReminderMessage(err instanceof Error ? err.message : "无法保存提醒偏好。");
+    } finally {
+      setReminderPending(false);
     }
   }
 
@@ -888,13 +929,17 @@ export function SettingsDashboard() {
           <input
             checked={settings.reminderSettings.enableMealReminder}
             className="h-5 w-5 accent-mint"
-            onChange={(event) => setSettings({
-              ...settings,
-              reminderSettings: {
-                ...settings.reminderSettings,
-                enableMealReminder: event.target.checked
-              }
-            })}
+            onChange={(event) => {
+              setSettings({
+                ...settings,
+                reminderSettings: {
+                  ...settings.reminderSettings,
+                  enableMealReminder: event.target.checked
+                }
+              });
+              setReminderDirty(true);
+              setReminderMessage(null);
+            }}
             type="checkbox"
           />
         </label>
@@ -904,13 +949,17 @@ export function SettingsDashboard() {
         <select
           className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
           id="mealReminderMinutes"
-          onChange={(event) => setSettings({
-            ...settings,
-            reminderSettings: {
-              ...settings.reminderSettings,
-              mealReminderMinutes: Number(event.target.value)
-            }
-          })}
+          onChange={(event) => {
+            setSettings({
+              ...settings,
+              reminderSettings: {
+                ...settings.reminderSettings,
+                mealReminderMinutes: Number(event.target.value)
+              }
+            });
+            setReminderDirty(true);
+            setReminderMessage(null);
+          }}
           value={settings.reminderSettings.mealReminderMinutes}
         >
           {mealReminderMinuteOptions.map((minutes) => (
@@ -920,6 +969,21 @@ export function SettingsDashboard() {
         <p className="mt-2 text-xs leading-5 text-ink/50">
           这个提醒基于你手动点击“我取下牙套了”的时间开始计时，不会自动识别吃饭。
         </p>
+        {reminderDirty ? (
+          <p className="mt-3 rounded-md bg-amber/10 p-2 text-xs leading-5 text-ink/60">
+            提醒偏好已修改，点击下方按钮后才会保存到云端。
+          </p>
+        ) : null}
+        {reminderMessage ? <p className={`mt-3 text-xs ${reminderMessage.startsWith("已") ? "text-sage" : "text-coral"}`}>{reminderMessage}</p> : null}
+        <button
+          className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+          disabled={reminderPending || !reminderDirty}
+          onClick={saveReminderPreferences}
+          type="button"
+        >
+          {reminderPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          保存提醒偏好
+        </button>
       </section>
 
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
