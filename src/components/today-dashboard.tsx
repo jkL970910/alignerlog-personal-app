@@ -15,7 +15,7 @@ type ApiState =
   | { status: "ready"; data: AppSnapshot; error?: never }
   | { status: "error"; data?: never; error: string };
 
-type ManualMode = "closed_session" | "forgot_take_off_open" | "forgot_put_back";
+type ManualMode = "closed_session" | "forgot_take_off_open" | "forgot_put_back" | "wearing_baseline";
 
 export function TodayDashboard() {
   const [state, setState] = useState<ApiState>({ status: "loading" });
@@ -351,10 +351,17 @@ export function TodayDashboard() {
               >
                 忘记点戴回
               </button>
+              <button
+                className={`min-h-11 rounded-md border px-3 text-sm font-semibold ${manualMode === "wearing_baseline" ? "border-ink bg-ink text-white" : "border-ink/10 text-ink"}`}
+                onClick={() => setManualMode("wearing_baseline")}
+                type="button"
+              >
+                补记此前已佩戴
+              </button>
             </div>
             {manualMode !== "forgot_put_back" ? (
               <label className="block text-sm font-medium text-ink/70">
-                实际取下时间
+                {manualMode === "wearing_baseline" ? "开始佩戴/开始追踪时间" : "实际取下时间"}
                 <input
                   className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
                   max={toDateTimeLocalValue(new Date())}
@@ -448,6 +455,10 @@ function formatWeekday(dateKey: string) {
 }
 
 function getManualHelperText(mode: ManualMode) {
+  if (mode === "wearing_baseline") {
+    return "适合开始使用 App 前已经佩戴牙套的空白时间；只修正佩戴统计起点，不增加取下次数。";
+  }
+
   if (mode === "closed_session") {
     return "适合忘记点“我取下牙套了”，但后来已经戴回的情况；会补回一段已结束的未佩戴时间。";
   }
@@ -460,6 +471,10 @@ function getManualHelperText(mode: ManualMode) {
 }
 
 function getManualButtonText(mode: ManualMode) {
+  if (mode === "wearing_baseline") {
+    return "保存此前已佩戴";
+  }
+
   if (mode === "closed_session") {
     return "保存已结束时段";
   }
@@ -472,6 +487,10 @@ function getManualButtonText(mode: ManualMode) {
 }
 
 function getManualSuccessText(mode: ManualMode) {
+  if (mode === "wearing_baseline") {
+    return "已补记此前已佩戴时间。";
+  }
+
   if (mode === "closed_session") {
     return "已补记这段取下时间。";
   }

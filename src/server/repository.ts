@@ -503,6 +503,36 @@ export async function createWearActionLog(params: {
   return mapWearActionLog(created);
 }
 
+export async function backfillWearTrackingStart(params: {
+  userId: string;
+  startedAt: Date;
+  source?: string | null;
+  userAgent?: string | null;
+  referer?: string | null;
+}) {
+  const now = new Date();
+
+  if (params.startedAt.getTime() > now.getTime()) {
+    throw new Error("补记时间不能晚于当前时间。");
+  }
+
+  const db = getDb();
+  const [created] = await db.insert(wearActionLogs).values({
+    userId: params.userId,
+    action: "end",
+    changed: false,
+    sessionId: null,
+    resultingIsWearing: true,
+    requestId: null,
+    source: params.source?.slice(0, 80) ?? "manual-wearing-baseline",
+    userAgent: params.userAgent ?? null,
+    referer: params.referer ?? null,
+    createdAt: params.startedAt
+  }).returning();
+
+  return mapWearActionLog(created);
+}
+
 export async function updateTreatmentPlan(userId: string, patch: Partial<Pick<
   TreatmentPlan,
   "startDate" | "currentTrayNumber" | "totalTrays" | "daysPerTray" | "dailyGoalMinutes"
