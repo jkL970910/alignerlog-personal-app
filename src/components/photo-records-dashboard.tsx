@@ -247,16 +247,33 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
             </select>
           </label>
 
-          <label className="block text-sm font-medium text-ink">
-            照片
-            <input
-              accept="image/*"
-              capture="environment"
-              className="mt-1 w-full rounded-md border border-dashed border-ink/20 bg-mist/50 px-3 py-3 text-sm"
-              onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-              type="file"
-            />
-          </label>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-ink">照片</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-dashed border-ink/20 bg-mist/50 px-3 text-sm font-semibold text-ink">
+                拍照上传
+                <input
+                  accept="image/*"
+                  capture="environment"
+                  className="sr-only"
+                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                  type="file"
+                />
+              </label>
+              <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-ink/15 bg-white px-3 text-sm font-semibold text-ink">
+                从相册选择
+                <input
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                  type="file"
+                />
+              </label>
+            </div>
+            <p className="text-xs leading-5 text-ink/50">
+              {selectedFile ? `已选择：${selectedFile.name}` : "可以现场拍照，也可以从手机相册选择已有照片。"}
+            </p>
+          </div>
 
           <label className="block text-sm font-medium text-ink">
             备注
