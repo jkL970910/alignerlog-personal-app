@@ -4,7 +4,7 @@ import { addDays, format, isValid, parseISO, subDays } from "date-fns";
 import { FormEvent, useEffect, useState } from "react";
 import { Download, Loader2, Save, Sparkles } from "lucide-react";
 
-import type { PlanProgress, ReminderSettings, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
+import type { PlanProgress, ReminderSettings, TreatmentExceptionEvent, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
 import { formatMinutes } from "@/lib/format";
 import {
   getClientDateKey,
@@ -24,6 +24,7 @@ type SettingsPayload = {
   reminderSettings: ReminderSettings;
   activeSeries: TreatmentSeries | null;
   planProgress: PlanProgress | null;
+  exceptionEvents: TreatmentExceptionEvent[];
 };
 
 type ImportState = TreatmentPlanImportInput;
@@ -48,6 +49,14 @@ const timeZoneOptions = [
 ];
 
 const mealReminderMinuteOptions = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180];
+
+const exceptionOptions: Array<{ value: TreatmentExceptionType; label: string; helper: string }> = [
+  { value: "extend_current_tray", label: "延长当前副", helper: "按医生要求多戴当前副，并顺延后续日程。" },
+  { value: "poor_fit", label: "牙套不贴合", helper: "只记录问题，不自动建议换副。" },
+  { value: "lost_or_broken", label: "丢失/损坏", helper: "只记录事件，请按医生/诊所指示处理。" },
+  { value: "waiting_refinement", label: "等待精修/复扫", helper: "暂停当前换期，等待下一阶段计划。" },
+  { value: "waiting_retainer", label: "等待保持器", helper: "暂停当前换期，记录为等待保持器。" }
+];
 
 function createDefaultImport(mode: PlanSetupMode = "import", dailyGoalMinutes = 1320): ImportState {
   const today = getClientDateKey();
@@ -106,6 +115,13 @@ export function SettingsDashboard() {
   const [numberPicker, setNumberPicker] = useState<NumberPickerState>(null);
   const [timeZone, setTimeZone] = useState(() => getClientTimeZone());
   const [manualTimeZone, setManualTimeZone] = useState(() => isTimeZoneManuallySet());
+  const [exceptionOpen, setExceptionOpen] = useState(false);
+  const [exceptionPending, setExceptionPending] = useState(false);
+  const [exceptionType, setExceptionType] = useState<TreatmentExceptionType>("extend_current_tray");
+  const [exceptionDate, setExceptionDate] = useState(() => getClientDateKey());
+  const [exceptionDays, setExceptionDays] = useState(1);
+  const [exceptionNote, setExceptionNote] = useState("");
+  const [exceptionMessage, setExceptionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings().catch((err: Error) => setError(err.message));
@@ -298,6 +314,47 @@ export function SettingsDashboard() {
     setResetConfirmArmed(true);
   }
 
+  async function saveException() {
+    if (!settings?.activeSeries) {
+      return;
+    }
+
+    setExceptionPending(true);
+    setExceptionMessage(null);
+
+    try {
+      const response = await fetch("/api/treatment-plan/exception", {
+        method: "POST",
+        headers: timeZoneHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          eventType: exceptionType,
+          eventDate: exceptionDate,
+          extensionDays: exceptionType === "extend_current_tray" ? exceptionDays : undefined,
+          note: exceptionNote
+        })
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "无法保存异常记录。");
+      }
+
+      setSettings({
+        ...settings,
+        activeSeries: payload.series,
+        planProgress: payload.progress,
+        exceptionEvents: [payload.event, ...settings.exceptionEvents].slice(0, 5)
+      });
+      setExceptionMessage("已记录异常处理。");
+      setExceptionNote("");
+      setExceptionOpen(false);
+    } catch (err) {
+      setExceptionMessage(err instanceof Error ? err.message : "无法保存异常记录。");
+    } finally {
+      setExceptionPending(false);
+    }
+  }
+
   function updateImportDraft(next: ImportState) {
     setImportDraft(next);
     setImportPreview(null);
@@ -404,6 +461,98 @@ export function SettingsDashboard() {
               <PreviewMetric label="剩余副数" value={progress.traysRemaining === null ? "未知" : `${progress.traysRemaining} 副`} />
               <PreviewMetric label="全程副数" value={progress.overallTotalTrays ? `${progress.overallTotalTrays} 副` : "未知"} />
               <PreviewMetric label="治疗总周期" value={progress.overallTreatmentDays ? `${progress.overallTreatmentDays} 天` : "未知"} />
+            </div>
+            <div className="mt-4 rounded-md border border-amber/20 bg-white/70 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-ink">异常处理</h3>
+                  <p className="mt-1 text-xs leading-5 text-ink/60">
+                    记录延长、暂停、丢失损坏或不贴合等情况。这里只管理日程和记录，不提供医疗判断。
+                  </p>
+                </div>
+                <button
+                  className="shrink-0 rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"
+                  onClick={() => setExceptionOpen((open) => !open)}
+                  type="button"
+                >
+                  {exceptionOpen ? "收起" : "处理"}
+                </button>
+              </div>
+              {exceptionOpen ? (
+                <div className="mt-4 space-y-3">
+                  <label className="block text-sm font-medium text-ink/70" htmlFor="exception-type">
+                    异常类型
+                    <select
+                      className="mt-2 min-h-12 w-full rounded-md border border-ink/10 bg-paper px-3 text-ink outline-none focus:border-mint"
+                      id="exception-type"
+                      onChange={(event) => setExceptionType(event.target.value as TreatmentExceptionType)}
+                      value={exceptionType}
+                    >
+                      {exceptionOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="rounded-md bg-mist/60 p-3 text-xs leading-5 text-ink/60">
+                    {exceptionOptions.find((option) => option.value === exceptionType)?.helper}
+                  </p>
+                  <DateField
+                    label="发生日期"
+                    value={exceptionDate}
+                    onChange={(value) => setExceptionDate(value || getClientDateKey())}
+                  />
+                  {exceptionType === "extend_current_tray" ? (
+                    <NumberPickerField
+                      label="延长天数"
+                      onOpen={() => setNumberPicker({
+                        title: "延长当前副",
+                        helper: "只在医生要求多戴当前副时使用。",
+                        value: exceptionDays,
+                        options: rangeOptions(1, 30),
+                        formatValue: (value) => `${value} 天`,
+                        onSelect: setExceptionDays
+                      })}
+                      value={`${exceptionDays} 天`}
+                    />
+                  ) : null}
+                  <label className="block text-sm font-medium text-ink/70" htmlFor="exception-note">
+                    备注
+                    <textarea
+                      className="mt-2 min-h-20 w-full resize-none rounded-md border border-ink/10 bg-paper px-3 py-2 text-ink outline-none focus:border-mint"
+                      id="exception-note"
+                      onChange={(event) => setExceptionNote(event.target.value)}
+                      placeholder="例如：医生要求第 8 副多戴 3 天；第 10 副不贴合，已联系诊所。"
+                      value={exceptionNote}
+                    />
+                  </label>
+                  <p className="rounded-md border border-amber/20 bg-mist/50 p-3 text-xs leading-5 text-ink/60">
+                    牙套不贴合、疼痛、损坏、丢失或是否换下一副，请联系牙医/正畸医生；Loo牙只记录和调整日程。
+                  </p>
+                  <button
+                    className="min-h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+                    disabled={exceptionPending}
+                    onClick={saveException}
+                    type="button"
+                  >
+                    {exceptionPending ? "保存中..." : "保存异常记录"}
+                  </button>
+                </div>
+              ) : null}
+              {exceptionMessage ? <p className={`mt-3 text-xs ${exceptionMessage.startsWith("已") ? "text-sage" : "text-coral"}`}>{exceptionMessage}</p> : null}
+              {settings.exceptionEvents.length ? (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-semibold tracking-[0.16em] text-ink/45">最近记录</p>
+                  {settings.exceptionEvents.map((event) => (
+                    <div className="rounded-md bg-mist/60 p-2 text-xs leading-5 text-ink/60" key={event.id}>
+                      <span className="font-semibold text-ink">{formatExceptionType(event.eventType)}</span>
+                      <span> · {event.eventDate}</span>
+                      {event.extensionDays ? <span> · 延长 {event.extensionDays} 天</span> : null}
+                      {event.scheduleAdjusted ? <span> · 已调整日程</span> : <span> · 仅记录</span>}
+                      {event.note ? <p className="mt-1">{event.note}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -955,6 +1104,18 @@ function formatSeriesType(seriesType: TreatmentSeriesType) {
   };
 
   return labels[seriesType];
+}
+
+function formatExceptionType(type: TreatmentExceptionType) {
+  const labels: Record<TreatmentExceptionType, string> = {
+    extend_current_tray: "延长当前副",
+    poor_fit: "牙套不贴合",
+    lost_or_broken: "丢失/损坏",
+    waiting_refinement: "等待精修/复扫",
+    waiting_retainer: "等待保持器"
+  };
+
+  return labels[type];
 }
 
 function normalizeImportDraft(draft: ImportState): TreatmentPlanImportInput {

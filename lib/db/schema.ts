@@ -268,3 +268,24 @@ export const plannedTrays = pgTable(
     userDateIdx: index("planned_trays_user_date_idx").on(table.userId, table.plannedStartDate, table.plannedEndDate)
   })
 );
+
+export const treatmentExceptionEvents = pgTable(
+  "treatment_exception_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    seriesId: uuid("series_id").notNull(),
+    trayNumber: integer("tray_number"),
+    eventType: varchar("event_type", { length: 40 }).notNull(),
+    eventDate: varchar("event_date", { length: 10 }).notNull(),
+    extensionDays: integer("extension_days"),
+    note: text("note").notNull().default(""),
+    scheduleAdjusted: boolean("schedule_adjusted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userSeriesDateIdx: index("treatment_exception_events_user_series_date_idx").on(table.userId, table.seriesId, table.eventDate),
+    userCreatedIdx: index("treatment_exception_events_user_created_idx").on(table.userId, table.createdAt)
+  })
+);

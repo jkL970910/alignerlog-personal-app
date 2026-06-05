@@ -43,6 +43,13 @@
       "when": 1780619500000,
       "tag": "0005_push_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780614200000,
+      "tag": "0006_treatment_exception_events",
+      "breakpoints": true
     }
   ]
 }

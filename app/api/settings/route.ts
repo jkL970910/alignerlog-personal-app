@@ -5,6 +5,7 @@ import {
   getActiveTreatmentSeries,
   getOrCreateReminderSettings,
   getOrCreateTreatmentPlan,
+  listTreatmentExceptionEvents,
   listPlannedTraysForSeries,
   updateReminderSettings,
   updateTreatmentPlan
@@ -32,11 +33,14 @@ export async function GET(request: Request) {
       timeZone
     }) : null;
 
+    const exceptionEvents = activeSeries ? await listTreatmentExceptionEvents(userId, activeSeries.id) : [];
+
     return apiJson({
       treatmentPlan: await getOrCreateTreatmentPlan(userId),
       reminderSettings: await getOrCreateReminderSettings(userId),
       activeSeries,
-      planProgress
+      planProgress,
+      exceptionEvents
     });
   } catch (error) {
     return apiError(error);
@@ -72,7 +76,9 @@ export async function PATCH(request: Request) {
       timeZone
     }) : null;
 
-    return apiJson({ treatmentPlan, reminderSettings, activeSeries, planProgress });
+    const exceptionEvents = activeSeries ? await listTreatmentExceptionEvents(userId, activeSeries.id) : [];
+
+    return apiJson({ treatmentPlan, reminderSettings, activeSeries, planProgress, exceptionEvents });
   } catch (error) {
     return apiError(error);
   }

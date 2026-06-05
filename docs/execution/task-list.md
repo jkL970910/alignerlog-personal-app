@@ -203,13 +203,13 @@ Acceptance:
 
 ## P1 Multi-Series And Exceptions
 
-Status: planned
+Status: active first pass
 
 Tasks:
 
-- Add refinement series.
-- Add passive/holding and retainer-specific flows.
-- Add exception events: delayed change, tray extension, poor fit, lost/broken tray, waiting for rescan/refinement/retainer.
+- Add refinement series. Planned.
+- Add passive/holding and retainer-specific flows. First pass implemented through waiting-refinement / waiting-retainer exception states.
+- Add exception events: delayed change, tray extension, poor fit, lost/broken tray, waiting for rescan/refinement/retainer. First pass implemented locally for current active series.
 - Add per-tray notes/symptom tags.
 - Add adherence-by-tray charts and forecast confidence labels.
 

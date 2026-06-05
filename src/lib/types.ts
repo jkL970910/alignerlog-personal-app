@@ -155,6 +155,13 @@ export type PlannedTrayStatus = "completed" | "current" | "upcoming" | "extended
 
 export type PlannedTraySource = "imported" | "generated" | "adjusted";
 
+export type TreatmentExceptionType =
+  | "extend_current_tray"
+  | "poor_fit"
+  | "lost_or_broken"
+  | "waiting_refinement"
+  | "waiting_retainer";
+
 export type TreatmentSeries = {
   id: string;
   userId: string;
@@ -192,6 +199,20 @@ export type PlannedTray = {
 };
 
 export type PlannedTrayDraft = Omit<PlannedTray, "id" | "userId" | "seriesId" | "createdAt" | "updatedAt">;
+
+export type TreatmentExceptionEvent = {
+  id: string;
+  userId: string;
+  seriesId: string;
+  trayNumber: number | null;
+  eventType: TreatmentExceptionType;
+  eventDate: string;
+  extensionDays: number | null;
+  note: string;
+  scheduleAdjusted: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type TreatmentPlanImportInput = {
   status: TreatmentStatus;

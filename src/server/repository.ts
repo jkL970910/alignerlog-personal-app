@@ -1,11 +1,11 @@
 import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
-import { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
-import { dayBounds, todayKey } from "@/lib/dates";
-import type { OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
+import { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import { addDaysToDateKey, dayBounds, todayKey } from "@/lib/dates";
+import type { OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
 
-import { mapDailyNote, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
+import { mapDailyNote, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentExceptionEvent, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
 
 const defaultGoalMinutes = 22 * 60;
 
@@ -421,6 +421,134 @@ export async function listPlannedTraysForSeries(userId: string, seriesId: string
   return rows.map(mapPlannedTray);
 }
 
+export async function listTreatmentExceptionEvents(userId: string, seriesId: string, limit = 5) {
+  const db = getDb();
+  const rows = await db.select().from(treatmentExceptionEvents)
+    .where(and(eq(treatmentExceptionEvents.userId, userId), eq(treatmentExceptionEvents.seriesId, seriesId)))
+    .orderBy(desc(treatmentExceptionEvents.createdAt))
+    .limit(limit);
+
+  return rows.map(mapTreatmentExceptionEvent);
+}
+
+export async function applyTreatmentException(params: {
+  userId: string;
+  eventType: TreatmentExceptionType;
+  eventDate: string;
+  extensionDays?: number | null;
+  note?: string | null;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  return db.transaction(async (tx) => {
+    const [series] = await tx.select().from(treatmentSeries)
+      .where(and(eq(treatmentSeries.userId, params.userId), eq(treatmentSeries.isActive, true)))
+      .orderBy(desc(treatmentSeries.createdAt))
+      .limit(1);
+
+    if (!series) {
+      throw new Error("No active treatment plan to update.");
+    }
+
+    const eventDate = normalizeDateKey(params.eventDate);
+    const note = params.note?.trim().slice(0, 1000) ?? "";
+    let scheduleAdjusted = false;
+
+    if (params.eventType === "extend_current_tray") {
+      const extensionDays = params.extensionDays ?? 0;
+
+      if (!Number.isInteger(extensionDays) || extensionDays < 1 || extensionDays > 30) {
+        throw new Error("延长天数需要在 1 到 30 天之间。");
+      }
+
+      const trays = await tx.select().from(plannedTrays)
+        .where(and(eq(plannedTrays.userId, params.userId), eq(plannedTrays.seriesId, series.id)))
+        .orderBy(asc(plannedTrays.trayNumber));
+      const currentTray = trays.find((tray) => tray.trayNumber === series.currentTrayNumber);
+
+      if (currentTray) {
+        await tx.update(plannedTrays)
+          .set({
+            plannedEndDate: addDaysToDateKey(currentTray.plannedEndDate, extensionDays),
+            status: "extended",
+            source: "adjusted",
+            note: appendNote(currentTray.note, `延长 ${extensionDays} 天。${note}`),
+            updatedAt: now
+          })
+          .where(eq(plannedTrays.id, currentTray.id));
+
+        const futureTrays = trays.filter((tray) => tray.trayNumber > series.currentTrayNumber);
+        await Promise.all(futureTrays.map((tray) => tx.update(plannedTrays)
+          .set({
+            plannedStartDate: addDaysToDateKey(tray.plannedStartDate, extensionDays),
+            plannedEndDate: addDaysToDateKey(tray.plannedEndDate, extensionDays),
+            source: "adjusted",
+            updatedAt: now
+          })
+          .where(eq(plannedTrays.id, tray.id))));
+      }
+
+      await tx.update(treatmentSeries)
+        .set({
+          nextChangeDate: series.nextChangeDate ? addDaysToDateKey(series.nextChangeDate, extensionDays) : null,
+          clinicianNotes: appendNote(series.clinicianNotes, `当前第 ${series.currentTrayNumber} 副延长 ${extensionDays} 天。${note}`),
+          updatedAt: now
+        })
+        .where(eq(treatmentSeries.id, series.id));
+      scheduleAdjusted = true;
+    }
+
+    if (params.eventType === "waiting_refinement" || params.eventType === "waiting_retainer") {
+      const nextStatus = params.eventType === "waiting_refinement" ? "waiting_refinement" : "holding";
+      const nextSeriesType = params.eventType === "waiting_refinement" ? series.seriesType : "holding";
+
+      await tx.update(treatmentSeries)
+        .set({
+          status: nextStatus,
+          seriesType: nextSeriesType,
+          nextChangeDate: null,
+          clinicianNotes: appendNote(series.clinicianNotes, `${params.eventType === "waiting_refinement" ? "等待精修/复扫" : "等待保持器"}。${note}`),
+          updatedAt: now
+        })
+        .where(eq(treatmentSeries.id, series.id));
+
+      await tx.update(plannedTrays)
+        .set({ status: "paused", source: "adjusted", updatedAt: now })
+        .where(and(
+          eq(plannedTrays.userId, params.userId),
+          eq(plannedTrays.seriesId, series.id),
+          eq(plannedTrays.trayNumber, series.currentTrayNumber)
+        ));
+      scheduleAdjusted = true;
+    }
+
+    const [event] = await tx.insert(treatmentExceptionEvents).values({
+      userId: params.userId,
+      seriesId: series.id,
+      trayNumber: series.currentTrayNumber,
+      eventType: params.eventType,
+      eventDate,
+      extensionDays: params.eventType === "extend_current_tray" ? params.extensionDays ?? null : null,
+      note,
+      scheduleAdjusted,
+      createdAt: now,
+      updatedAt: now
+    }).returning();
+
+    const [updatedSeries] = await tx.select().from(treatmentSeries).where(eq(treatmentSeries.id, series.id)).limit(1);
+    const trays = await tx.select().from(plannedTrays)
+      .where(and(eq(plannedTrays.userId, params.userId), eq(plannedTrays.seriesId, series.id)))
+      .orderBy(asc(plannedTrays.trayNumber));
+
+    return {
+      event: mapTreatmentExceptionEvent(event),
+      series: mapTreatmentSeries(updatedSeries),
+      trays: trays.map(mapPlannedTray)
+    };
+  });
+}
+
 export async function saveTreatmentPlanImport(userId: string, preview: TreatmentPlanImportPreview) {
   const db = getDb();
   const now = new Date();
@@ -712,4 +840,22 @@ export async function markReminderJobFailed(jobId: string, error: string) {
     .returning();
 
   return mapReminderJob(job);
+}
+
+function normalizeDateKey(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error("日期格式必须是 YYYY-MM-DD。");
+  }
+
+  return value;
+}
+
+function appendNote(existing: string, next: string) {
+  const cleanNext = next.trim();
+
+  if (!cleanNext) {
+    return existing;
+  }
+
+  return [existing.trim(), cleanNext].filter(Boolean).join("\n");
 }

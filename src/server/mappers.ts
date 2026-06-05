@@ -1,6 +1,6 @@
-import type { DailyNote, OffTraySession, PlannedTray, PushSubscriptionRecord, ReminderJob, ReminderSettings, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
+import type { DailyNote, OffTraySession, PlannedTray, PushSubscriptionRecord, ReminderJob, ReminderSettings, TreatmentExceptionEvent, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
 
-import type { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import type { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 
 type UserRow = typeof users.$inferSelect;
 type TreatmentPlanRow = typeof treatmentPlans.$inferSelect;
@@ -13,6 +13,7 @@ type PlannedTrayRow = typeof plannedTrays.$inferSelect;
 type WearActionLogRow = typeof wearActionLogs.$inferSelect;
 type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 type ReminderJobRow = typeof reminderJobs.$inferSelect;
+type TreatmentExceptionEventRow = typeof treatmentExceptionEvents.$inferSelect;
 
 export function mapUser(row: UserRow): UserAccount {
   return {
@@ -103,6 +104,15 @@ export function mapReminderJob(row: ReminderJobRow): ReminderJob {
     status: row.status as ReminderJob["status"],
     dueAt: row.dueAt.toISOString(),
     sentAt: row.sentAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+export function mapTreatmentExceptionEvent(row: TreatmentExceptionEventRow): TreatmentExceptionEvent {
+  return {
+    ...row,
+    eventType: row.eventType as TreatmentExceptionEvent["eventType"],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
   };
