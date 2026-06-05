@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, ne, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
 import { dailyNotes, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
@@ -182,6 +182,10 @@ export async function listSessionsForRange(userId: string, startDate: string, en
     .orderBy(asc(offTraySessions.startAt));
 
   return rows.map(mapOffTraySession);
+}
+
+export async function listSessionsForDate(userId: string, date: string, timeZone = "UTC") {
+  return listSessionsForRange(userId, date, date, timeZone);
 }
 
 export async function listDailyNotesForRange(userId: string, startDate: string, endDate: string) {
@@ -408,6 +412,85 @@ export async function createManualOffTraySession(params: {
   }).returning();
 
   return mapOffTraySession(session);
+}
+
+export async function updateManualOffTraySession(params: {
+  userId: string;
+  sessionId: string;
+  startAt: Date;
+  endAt: Date;
+  reason?: OffTrayReason;
+}) {
+  if (params.endAt.getTime() <= params.startAt.getTime()) {
+    throw new Error("戴回时间必须晚于取下时间。");
+  }
+
+  const now = new Date();
+
+  if (params.startAt.getTime() > now.getTime() || params.endAt.getTime() > now.getTime()) {
+    throw new Error("补记时间不能晚于当前时间。");
+  }
+
+  const db = getDb();
+  const [existing] = await db.select().from(offTraySessions)
+    .where(and(eq(offTraySessions.userId, params.userId), eq(offTraySessions.id, params.sessionId)))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("找不到这条取下记录。");
+  }
+
+  if (!existing.endAt) {
+    throw new Error("正在进行中的取下记录请在首页处理戴回时间。");
+  }
+
+  const overlapping = await db.select().from(offTraySessions)
+    .where(and(
+      eq(offTraySessions.userId, params.userId),
+      lt(offTraySessions.startAt, params.endAt),
+      or(isNull(offTraySessions.endAt), gt(offTraySessions.endAt, params.startAt)),
+      ne(offTraySessions.id, params.sessionId)
+    ))
+    .limit(1);
+
+  if (overlapping.length > 0) {
+    throw new Error("修改后的时间与已有取下记录重叠，请调整时间。");
+  }
+
+  const [session] = await db.update(offTraySessions)
+    .set({
+      startAt: params.startAt,
+      endAt: params.endAt,
+      reason: params.reason ?? existing.reason ?? "other",
+      reminderAt: null,
+      reminderStatus: "none",
+      updatedAt: now
+    })
+    .where(and(eq(offTraySessions.userId, params.userId), eq(offTraySessions.id, params.sessionId)))
+    .returning();
+
+  return mapOffTraySession(session);
+}
+
+export async function deleteManualOffTraySession(userId: string, sessionId: string) {
+  const db = getDb();
+  const [existing] = await db.select().from(offTraySessions)
+    .where(and(eq(offTraySessions.userId, userId), eq(offTraySessions.id, sessionId)))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("找不到这条取下记录。");
+  }
+
+  if (!existing.endAt) {
+    throw new Error("正在进行中的取下记录请先在首页处理戴回时间。");
+  }
+
+  const [deleted] = await db.delete(offTraySessions)
+    .where(and(eq(offTraySessions.userId, userId), eq(offTraySessions.id, sessionId)))
+    .returning();
+
+  return mapOffTraySession(deleted);
 }
 
 export async function startManualActiveOffTraySession(params: {
