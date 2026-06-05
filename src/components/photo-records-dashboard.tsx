@@ -25,6 +25,13 @@ type UploadDraft = {
   note: string;
 };
 
+type PhotoRecordsDashboardProps = {
+  embeddedDate?: string;
+  compact?: boolean;
+  title?: string;
+  helper?: string;
+};
+
 const viewOptions: Array<{ value: DentalPhotoViewType; label: string }> = [
   { value: "front", label: "正面" },
   { value: "upper", label: "上牙弓" },
@@ -37,7 +44,7 @@ const viewOptions: Array<{ value: DentalPhotoViewType; label: string }> = [
 
 const maxUploadBytes = 650_000;
 
-export function PhotoRecordsDashboard() {
+export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
   const [photos, setPhotos] = useState<DentalPhotoRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -46,12 +53,20 @@ export function PhotoRecordsDashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [draft, setDraft] = useState<UploadDraft>(() => ({
-    date: getClientDateKey(),
+    date: props.embeddedDate ?? getClientDateKey(),
     stageName: "",
     trayNumber: "",
     viewType: "front",
     note: ""
   }));
+
+  useEffect(() => {
+    if (!props.embeddedDate) {
+      return;
+    }
+
+    setDraft((current) => ({ ...current, date: props.embeddedDate ?? current.date }));
+  }, [props.embeddedDate]);
 
   useEffect(() => {
     Promise.all([loadPhotos(), loadPlanDefaults()]).catch((err: Error) => setError(err.message)).finally(() => setLoading(false));
@@ -153,6 +168,7 @@ export function PhotoRecordsDashboard() {
   const selectedPhotos = useMemo(() => selectedIds
     .map((id) => photos.find((photo) => photo.id === id))
     .filter((photo): photo is DentalPhotoRecord => Boolean(photo)), [photos, selectedIds]);
+  const visiblePhotos = props.embeddedDate ? photos.filter((photo) => photo.date === props.embeddedDate) : photos;
 
   if (error) {
     return <SetupWarning message={error} />;
@@ -174,9 +190,9 @@ export function PhotoRecordsDashboard() {
             <Camera className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-ink">新增阶段照片</h2>
+            <h2 className="text-base font-semibold text-ink">{props.title ?? "新增阶段照片"}</h2>
             <p className="mt-1 text-sm leading-6 text-ink/60">
-              建议在相同角度、光线和距离下拍摄。照片仅用于自我记录，不提供诊断或换牙套建议。
+              {props.helper ?? "建议在相同角度、光线和距离下拍摄。照片仅用于自我记录，不提供诊断或换牙套建议。"}
             </p>
           </div>
         </div>
@@ -186,6 +202,7 @@ export function PhotoRecordsDashboard() {
             拍摄日期
             <input
               className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+              disabled={Boolean(props.embeddedDate)}
               onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))}
               type="date"
               value={draft.date}
@@ -293,8 +310,8 @@ export function PhotoRecordsDashboard() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-ink">照片档案</h2>
-        {photos.length ? photos.map((photo) => (
+        <h2 className="text-base font-semibold text-ink">{props.compact ? "当天照片" : "照片档案"}</h2>
+        {visiblePhotos.length ? visiblePhotos.map((photo) => (
           <PhotoCard
             key={photo.id}
             onDelete={() => deletePhoto(photo.id)}
@@ -304,7 +321,7 @@ export function PhotoRecordsDashboard() {
           />
         )) : (
           <div className="rounded-lg border border-ink/10 bg-white/80 p-4 text-sm leading-6 text-ink/60">
-            还没有照片记录。可以从当前阶段开始拍一张正面照，后续每次换期或复诊前补充同角度照片。
+            {props.embeddedDate ? "这一天还没有照片记录，可以在上方补传。" : "还没有照片记录。可以从当前阶段开始拍一张正面照，后续每次换期或复诊前补充同角度照片。"}
           </div>
         )}
       </section>

@@ -189,7 +189,8 @@ Tasks:
 - Improve Today next-change date presentation to avoid narrow ISO date wrapping. Implemented locally.
 - Fix active off-tray duration display after local midnight to use today's day-sliced off time. Implemented locally.
 - Add treatment exception lifecycle and Today change-confirmation flow: active/resolved/cancelled exception records, Settings resolve/cancel controls, Today active-exception banner, and explicit confirm-to-advance current tray. Implemented locally.
-- Add dental photo records: authenticated photo upload, client-side compression, date/stage/tray/view metadata, photo archive, delete action, and two-photo side-by-side comparison. Implemented locally.
+- Add dental photo records: authenticated photo upload, client-side compression, date/stage/tray/view metadata, photo archive, delete action, and two-photo side-by-side comparison. Implemented and deployed.
+- Refine photo IA: remove the bottom-nav photo tab, embed stage-photo upload in Calendar day detail and History day/session editor, and keep `/photos` as a hidden full archive route. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
@@ -204,7 +205,7 @@ Acceptance:
 1. Deploy current exception lifecycle / tray-change confirmation slice and run mobile QA on Today + Settings.
 2. Manual mobile QA checklist for deployed pages: register/login, Today empty state, first off-tray session, Today timezone boundary, History no-data and recorded-data states, Calendar notes/no-data/tray-boundary states, Settings plan create/import/update/reset, push subscription and reminder worker.
 3. Calendar exception markers: show exception start/resolution dots alongside tray boundary markers.
-4. Photo records QA: upload from mobile camera/library, verify compressed save/readback, delete isolation, and same-angle comparison.
+4. Photo records QA: upload from mobile camera/library through Calendar and History details, verify compressed save/readback, delete isolation, hidden full archive, and same-angle comparison.
 5. Loo牙大臣 P0: server-side OpenRouter route, bounded context, floating component, safety prompt.
 6. Multi-series timeline: initial/refinement/holding/retainer stages.
 
@@ -232,6 +233,8 @@ Tasks:
 - Add mobile photo upload with metadata: date, stage, tray number, view type, and note. Implemented locally.
 - Compress photos client-side before saving to Postgres. Implemented locally as a low-volume personal-project shortcut.
 - Add photo archive and two-photo comparison view. Implemented locally.
+- Embed photo upload into Calendar day detail and History previous-session editor. Implemented locally.
+- Remove photo from bottom navigation to keep mobile IA at five primary tabs. Implemented locally.
 - Add object storage migration path if photo volume grows beyond small personal use. Planned.
 - Add AI-assisted descriptive comparison only after strict medical-safety copy and no-diagnosis boundary are in place. Planned.
 

@@ -9,6 +9,7 @@ import { timeZoneHeaders } from "@/lib/client-time-zone";
 import type { DailySummary, OffTrayReason, OffTraySession } from "@/lib/types";
 
 import { MetricCard } from "./metric-card";
+import { PhotoRecordsDashboard } from "./photo-records-dashboard";
 import { SetupWarning } from "./setup-warning";
 
 type Metrics = {
@@ -228,17 +229,25 @@ export function HistoryDashboard() {
               </div>
             </button>
             {selectedDate === summary.date ? (
-              <DaySessionEditor
-                draft={sessionDraft}
-                message={sessionMessage}
-                onCancelEdit={() => setSessionDraft(createDefaultDraft(summary.date))}
-                onDelete={deleteSession}
-                onDraftChange={setSessionDraft}
-                onEdit={(session) => setSessionDraft(createDraftFromSession(session))}
-                onSave={saveSessionDraft}
-                pending={sessionPending}
-                sessions={sessions}
-              />
+              <div className="mt-3 space-y-3">
+                <DaySessionEditor
+                  draft={sessionDraft}
+                  message={sessionMessage}
+                  onCancelEdit={() => setSessionDraft(createDefaultDraft(summary.date))}
+                  onDelete={deleteSession}
+                  onDraftChange={setSessionDraft}
+                  onEdit={(session) => setSessionDraft(createDraftFromSession(session))}
+                  onSave={saveSessionDraft}
+                  pending={sessionPending}
+                  sessions={sessions}
+                />
+                <PhotoRecordsDashboard
+                  compact
+                  embeddedDate={summary.date}
+                  helper="给这一天补传阶段照片，适合复盘某次换期或取下记录附近的牙齿状态。"
+                  title="补传当天阶段照片"
+                />
+              </div>
             ) : null}
           </div>
         ))}

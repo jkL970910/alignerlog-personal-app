@@ -6,8 +6,8 @@ export default function PhotosPage() {
     <>
       <PageHeader
         eyebrow="牙形档案"
-        title="照片记录"
-        subtitle="按阶段保存牙齿照片，并选择两张同角度照片进行对比。"
+        title="全部阶段照片"
+        subtitle="这是完整照片档案入口；日常补传建议从日历或趋势的日期详情进入。"
       />
       <PhotoRecordsDashboard />
     </>

@@ -9,6 +9,7 @@ import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
 import type { CalendarDay } from "@/lib/types";
 
 import { SetupWarning } from "./setup-warning";
+import { PhotoRecordsDashboard } from "./photo-records-dashboard";
 
 type CalendarPayload = {
   month: string;
@@ -223,6 +224,14 @@ export function CalendarDashboard() {
             {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {noteSaved ? "已保存" : "保存札记"}
           </button>
+          <div className="mt-4">
+            <PhotoRecordsDashboard
+              compact
+              embeddedDate={selectedDay.date}
+              helper="给当前日期补传阶段照片；建议保持同角度、同光线，方便后续对比。"
+              title="阶段照片"
+            />
+          </div>
         </section>
       ) : null}
     </div>
