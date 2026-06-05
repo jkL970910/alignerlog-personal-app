@@ -101,8 +101,10 @@ export function calculateDailySummaries(params: {
     }));
 }
 
-export function calculateHistoryMetrics(summaries: DailySummary[]) {
-  const dated = summaries.filter((summary) => summary.hasData).sort((a, b) => a.date.localeCompare(b.date));
+export function calculateHistoryMetrics(summaries: DailySummary[], options?: { today?: string }) {
+  const dated = summaries
+    .filter((summary) => summary.hasData && (!options?.today || summary.date < options.today))
+    .sort((a, b) => a.date.localeCompare(b.date));
   const last7 = dated.slice(-7);
   const last30 = dated.slice(-30);
   const goalDays = dated.filter((summary) => summary.goalMet).length;

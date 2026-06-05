@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateDailySummary, splitSessionByDay } from "./summaries";
+import { calculateDailySummary, calculateHistoryMetrics, splitSessionByDay } from "./summaries";
 import type { OffTraySession, TreatmentPlan } from "./types";
 
 const treatmentPlan: Pick<TreatmentPlan, "dailyGoalMinutes" | "currentTrayNumber"> = {
@@ -56,6 +56,39 @@ describe("splitSessionByDay", () => {
     );
 
     expect(parts).toEqual([{ date: "2026-06-03", minutes: 60 }]);
+  });
+});
+
+describe("calculateHistoryMetrics", () => {
+  it("excludes the in-progress current day from complete-day metrics", () => {
+    const metrics = calculateHistoryMetrics([
+      {
+        date: "2026-06-04",
+        offMinutes: 60,
+        wearMinutes: 1380,
+        goalMinutes: 1320,
+        trayNumber: 1,
+        sessionCount: 1,
+        longestOffSessionMinutes: 60,
+        goalMet: true,
+        hasData: true
+      },
+      {
+        date: "2026-06-05",
+        offMinutes: 30,
+        wearMinutes: 800,
+        goalMinutes: 1320,
+        trayNumber: 1,
+        sessionCount: 1,
+        longestOffSessionMinutes: 30,
+        goalMet: false,
+        hasData: true
+      }
+    ], { today: "2026-06-05" });
+
+    expect(metrics.goalAchievementRate).toBe(100);
+    expect(metrics.longestGoalStreak).toBe(1);
+    expect(metrics.sevenDayAverage).toBe(1380);
   });
 });
 

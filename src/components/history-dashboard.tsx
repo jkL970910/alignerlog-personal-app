@@ -23,6 +23,7 @@ type Metrics = {
 type HistoryPayload = {
   summaries: DailySummary[];
   metrics: Metrics;
+  today: string;
 };
 
 export function HistoryDashboard() {
@@ -58,7 +59,8 @@ export function HistoryDashboard() {
   const recordedSummaries = data.summaries.filter((summary) => summary.hasData);
   const chartData = recordedSummaries.slice(-14).map((summary) => ({
     date: summary.date.slice(5),
-    hours: Number((summary.wearMinutes / 60).toFixed(1))
+    hours: Number((summary.wearMinutes / 60).toFixed(1)),
+    inProgress: summary.date === data.today
   }));
 
   return (
@@ -79,7 +81,7 @@ export function HistoryDashboard() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dfe7e3" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6f8f7c" />
                 <YAxis tick={{ fontSize: 11 }} stroke="#6f8f7c" />
-                <Tooltip formatter={(value) => [`${value}小时`, "已佩戴"]} />
+                <Tooltip formatter={(value, _name, item) => [`${value}小时`, item.payload.inProgress ? "今日进行中" : "已佩戴"]} />
                 <Bar dataKey="hours" radius={[4, 4, 0, 0]} fill="#c7655d" />
               </BarChart>
             </ResponsiveContainer>
@@ -100,8 +102,8 @@ export function HistoryDashboard() {
             </div>
             <div className="text-right">
               <p className="font-semibold text-ink">{formatMinutes(summary.wearMinutes)}</p>
-              <p className={`text-sm ${summary.goalMet ? "text-mint" : "text-coral"}`}>
-                {summary.goalMet ? "已达标" : "未达标"}
+              <p className={`text-sm ${summary.date === data.today ? "text-sage" : summary.goalMet ? "text-mint" : "text-coral"}`}>
+                {summary.date === data.today ? "进行中" : summary.goalMet ? "已达标" : "未达标"}
               </p>
             </div>
           </div>

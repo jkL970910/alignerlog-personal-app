@@ -28,9 +28,10 @@ export async function GET(request: Request) {
       hasTrackingStarted: Boolean(trackingStartedAt),
       trackingStartedAt
     });
-    const metrics = calculateHistoryMetrics(summaries);
+    const today = todayKey(now, timeZone);
+    const metrics = calculateHistoryMetrics(summaries, { today });
 
-    return apiJson({ summaries, metrics });
+    return apiJson({ summaries, metrics, today });
   } catch (error) {
     return apiError(error);
   }
