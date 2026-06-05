@@ -82,7 +82,7 @@ Expected:
 ## Push Reminder Notes
 
 PWA push reminders are device/browser subscriptions. Users must explicitly
-enable push on the Reminders page. Meal/off-tray reminders are not automatic
+enable push from Settings -> 提醒偏好. Meal/off-tray reminders are not automatic
 meal detection: the reminder job is scheduled only after the user taps
 `我取下牙套了`.
 

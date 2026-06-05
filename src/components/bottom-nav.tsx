@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, CalendarDays, ChartColumn, Settings, Smile } from "lucide-react";
+import { CalendarDays, ChartColumn, Settings, Smile } from "lucide-react";
 
 const items = [
   { href: "/today", label: "今日", icon: Smile },
   { href: "/history", label: "趋势", icon: ChartColumn },
   { href: "/calendar", label: "日历", icon: CalendarDays },
-  { href: "/reminders", label: "提醒", icon: Bell },
   { href: "/settings", label: "设置", icon: Settings }
 ];
 
@@ -17,7 +16,7 @@ export function BottomNav() {
 
   return (
     <nav className="safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-paper/90 px-3 pt-2 shadow-[0_-18px_40px_rgba(91,47,55,0.08)] backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+      <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
         {items.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;

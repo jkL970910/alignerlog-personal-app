@@ -2,7 +2,7 @@
 
 import { addDays, format, isValid, parseISO, subDays } from "date-fns";
 import { useEffect, useState } from "react";
-import { Download, Loader2, Sparkles } from "lucide-react";
+import { Bell, Cloud, Download, Loader2, Sparkles, Timer } from "lucide-react";
 
 import type { PlanProgress, ReminderSettings, TreatmentExceptionEvent, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
 import { formatMinutes } from "@/lib/format";
@@ -17,6 +17,7 @@ import {
 } from "@/lib/client-time-zone";
 
 import { LogoutButton } from "./logout-button";
+import { PushNotificationCard } from "./push-notification-card";
 import { SetupWarning } from "./setup-warning";
 
 type SettingsPayload = {
@@ -939,6 +940,9 @@ export function SettingsDashboard() {
 
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-ink">提醒偏好</h2>
+        <p className="mt-2 text-sm leading-6 text-ink/60">
+          提醒计时从你手动点击“我取下牙套了”开始；系统不会自动判断进食。
+        </p>
         <label className="mt-4 flex items-center justify-between gap-3 text-sm text-ink">
           <span>摘下后提醒戴回</span>
           <input
@@ -984,6 +988,14 @@ export function SettingsDashboard() {
         <p className="mt-2 text-xs leading-5 text-ink/50">
           这个提醒基于你手动点击“我取下牙套了”的时间开始计时，不会自动识别吃饭。
         </p>
+        <div className="mt-4 rounded-md bg-mist/60 p-3 text-sm leading-6 text-ink/65">
+          <p className="font-semibold text-ink">当前规则</p>
+          <p className="mt-1">
+            {settings.reminderSettings.enableMealReminder
+              ? `摘下牙套 ${settings.reminderSettings.mealReminderMinutes} 分钟后提醒戴回。戴回后，本次提醒会自动取消。`
+              : "摘下后提醒尚未开启。开启后仍需在当前设备允许推送。"}
+          </p>
+        </div>
         {reminderDirty ? (
           <p className="mt-3 rounded-md bg-amber/10 p-2 text-xs leading-5 text-ink/60">
             提醒偏好已修改，点击下方按钮后才会保存到云端。
@@ -999,6 +1011,29 @@ export function SettingsDashboard() {
           {reminderPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           保存提醒偏好
         </button>
+        <details className="mt-4 rounded-md border border-ink/10 bg-paper p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-ink">当前设备推送与工作原理</summary>
+          <div className="mt-4 space-y-3">
+            <PushNotificationCard />
+            <div className="space-y-3 text-sm leading-6 text-ink/65">
+              <HowItWorksRow
+                icon={<Timer className="h-4 w-4" />}
+                title="从手动摘下开始计时"
+                body="只有你在今日页点击“我取下牙套了”，才会生成本次戴回提醒。"
+              />
+              <HowItWorksRow
+                icon={<Bell className="h-4 w-4" />}
+                title="到期才发送通知"
+                body="后台定时检查是否有到期任务。没有到期任务时不会发通知，也不会重复通知。"
+              />
+              <HowItWorksRow
+                icon={<Cloud className="h-4 w-4" />}
+                title="戴回后自动取消"
+                body="如果你已经点击“我戴回牙套了”，这次摘下对应的提醒会取消。"
+              />
+            </div>
+          </div>
+        </details>
       </section>
 
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
@@ -1206,6 +1241,20 @@ function PreviewMetric({ label, value }: { label: string; value: string }) {
     <div className="rounded-md bg-white/80 p-2">
       <p className="text-xs text-ink/50">{label}</p>
       <p className="mt-1 font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function HowItWorksRow(props: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="flex gap-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-sage">
+        {props.icon}
+      </div>
+      <div>
+        <p className="font-medium text-ink">{props.title}</p>
+        <p className="mt-0.5">{props.body}</p>
+      </div>
     </div>
   );
 }

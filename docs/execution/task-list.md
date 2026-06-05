@@ -191,6 +191,7 @@ Tasks:
 - Add treatment exception lifecycle and Today change-confirmation flow: active/resolved/cancelled exception records, Settings resolve/cancel controls, Today active-exception banner, and explicit confirm-to-advance current tray. Implemented locally.
 - Add dental photo records: authenticated photo upload, client-side compression, date/stage/tray/view metadata, photo archive, delete action, and two-photo side-by-side comparison. Implemented and deployed.
 - Refine photo IA: remove the bottom-nav photo tab, embed stage-photo upload in Calendar day detail and History day/session editor, and keep `/photos` as a hidden full archive route. Implemented locally.
+- Refine reminder IA: remove the bottom-nav reminder tab, merge push permission/status and reminder rule explanation into Settings -> 提醒偏好, and redirect the old `/reminders` route to Settings. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
