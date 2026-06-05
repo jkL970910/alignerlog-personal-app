@@ -156,9 +156,7 @@ export function TodayDashboard() {
   const planProgress = state.data.planProgress;
   const isWearing = wearState.isWearing;
   const progress = todaySummary.hasData ? Math.min(100, (todaySummary.wearMinutes / treatmentPlan.dailyGoalMinutes) * 100) : 0;
-  const activeOutMinutes = activeSession
-    ? Math.max(0, Math.floor((Date.now() - new Date(activeSession.startAt).getTime()) / 60000))
-    : 0;
+  const activeOutMinutes = activeSession ? todaySummary.offMinutes : 0;
 
   return (
     <div className="space-y-4">

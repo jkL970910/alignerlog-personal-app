@@ -187,6 +187,7 @@ Tasks:
 - Fix Today local-day rollover progress so started users continue accumulating today's wear time without needing a new toggle action. Implemented locally.
 - Split manual correction into forgot-take-off already-back, forgot-take-off still-out, and forgot-put-back modes. Implemented locally.
 - Improve Today next-change date presentation to avoid narrow ISO date wrapping. Implemented locally.
+- Fix active off-tray duration display after local midnight to use today's day-sliced off time. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:
