@@ -123,6 +123,27 @@ describe("calculateDailySummary", () => {
     expect(summary.wearMinutes).toBe(720);
   });
 
+  it("does not backfill wear before the first tracking action on the first day", () => {
+    const summary = calculateDailySummary({
+      date: "2026-06-04",
+      sessions: [
+        session({
+          startAt: "2026-06-05T03:28:26.000Z",
+          endAt: "2026-06-05T03:28:27.000Z"
+        })
+      ],
+      treatmentPlan,
+      now: new Date("2026-06-05T03:30:00.000Z"),
+      timeZone: "America/Toronto",
+      hasTrackingStarted: true,
+      trackingStartedAt: "2026-06-05T03:28:26.000Z"
+    });
+
+    expect(summary.hasData).toBe(true);
+    expect(summary.wearMinutes).toBe(1);
+    expect(summary.goalMet).toBe(false);
+  });
+
   it("uses the local day elapsed time for current-day wear", () => {
     const summary = calculateDailySummary({
       date: "2026-06-03",

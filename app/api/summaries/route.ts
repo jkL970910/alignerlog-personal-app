@@ -2,7 +2,7 @@ import { addDaysToDateKey, todayKey } from "@/lib/dates";
 import { calculateDailySummaries, calculateHistoryMetrics } from "@/lib/summaries";
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
-import { getOrCreateTreatmentPlan, listSessionsForRange } from "@/server/repository";
+import { getOrCreateTreatmentPlan, getTrackingStartedAt, listSessionsForRange } from "@/server/repository";
 import { getRequestTimeZone } from "@/server/time-zone";
 
 export const runtime = "nodejs";
@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     const endDate = url.searchParams.get("end") ?? todayKey(now, timeZone);
     const startDate = url.searchParams.get("start") ?? addDaysToDateKey(endDate, -29);
     const treatmentPlan = await getOrCreateTreatmentPlan(userId);
+    const trackingStartedAt = await getTrackingStartedAt(userId);
     const sessions = await listSessionsForRange(userId, startDate, endDate, timeZone);
     const summaries = calculateDailySummaries({
       startDate,
@@ -23,7 +24,9 @@ export async function GET(request: Request) {
       sessions,
       treatmentPlan,
       now,
-      timeZone
+      timeZone,
+      hasTrackingStarted: Boolean(trackingStartedAt),
+      trackingStartedAt
     });
     const metrics = calculateHistoryMetrics(summaries);
 

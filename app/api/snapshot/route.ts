@@ -8,6 +8,7 @@ import {
   getActiveTreatmentSeries,
   getOrCreateReminderSettings,
   getOrCreateTreatmentPlan,
+  getTrackingStartedAt,
   getWearState,
   listActiveTreatmentExceptionEvents,
   listPlannedTraysForSeries,
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
     const date = todayKey(now, timeZone);
     const treatmentPlan = await getOrCreateTreatmentPlan(userId);
     const persistedWearState = await getWearState(userId);
+    const trackingStartedAt = await getTrackingStartedAt(userId);
     const reminderSettings = await getOrCreateReminderSettings(userId);
     const activeSession = await getActiveSession(userId);
     const wearState = activeSession
@@ -53,7 +55,8 @@ export async function GET(request: Request) {
       treatmentPlan,
       now,
       timeZone,
-      hasTrackingStarted: Boolean(persistedWearState)
+      hasTrackingStarted: Boolean(persistedWearState),
+      trackingStartedAt
     });
     const planProgress = activeSeries ? calculatePlanProgress({
       status: activeSeries.status,

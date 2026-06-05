@@ -36,9 +36,12 @@ export function calculateDailySummary(params: {
   now?: Date;
   timeZone?: string;
   hasTrackingStarted?: boolean;
+  trackingStartedAt?: string | Date | null;
 }): DailySummary {
   const now = params.now ?? new Date();
   const timeZone = params.timeZone ?? "UTC";
+  const bounds = dayBounds(params.date, timeZone);
+  const trackingStartedAt = params.trackingStartedAt ? new Date(params.trackingStartedAt) : null;
   const offParts = params.sessions.flatMap((session) => splitSessionByDay(session, now, timeZone));
   const offMinutes = offParts
     .filter((part) => part.date === params.date)
@@ -46,15 +49,18 @@ export function calculateDailySummary(params: {
   const sessionCount = params.sessions.filter((session) => {
     const start = new Date(session.startAt);
     const end = session.endAt ? new Date(session.endAt) : now;
-    const bounds = dayBounds(params.date, timeZone);
-
     return isBefore(start, bounds.end) && isAfter(end, bounds.start);
   }).length;
   const longestOffSessionMinutes = offParts
     .filter((part) => part.date === params.date)
     .reduce((longest, part) => Math.max(longest, part.minutes), 0);
-  const hasData = Boolean(params.hasTrackingStarted) || sessionCount > 0 || offMinutes > 0;
-  const dayElapsed = elapsedMinutesInDay(params.date, now, timeZone);
+  const hasTrackingStartedForDay = Boolean(params.hasTrackingStarted)
+    && (!trackingStartedAt || isBefore(trackingStartedAt, bounds.end));
+  const hasData = hasTrackingStartedForDay || sessionCount > 0 || offMinutes > 0;
+  const dayStart = trackingStartedAt && isAfter(trackingStartedAt, bounds.start) && isBefore(trackingStartedAt, bounds.end)
+    ? trackingStartedAt
+    : bounds.start;
+  const dayElapsed = hasData ? Math.max(0, differenceInMinutes(isBefore(now, bounds.end) ? now : bounds.end, dayStart)) : 0;
   const wearMinutes = hasData ? clamp(dayElapsed - offMinutes, 0, minutesInDay(params.date, timeZone)) : 0;
 
   return {
@@ -77,6 +83,8 @@ export function calculateDailySummaries(params: {
   treatmentPlan: Pick<TreatmentPlan, "dailyGoalMinutes" | "currentTrayNumber">;
   now?: Date;
   timeZone?: string;
+  hasTrackingStarted?: boolean;
+  trackingStartedAt?: string | Date | null;
 }) {
   const timeZone = params.timeZone ?? "UTC";
 
@@ -87,7 +95,9 @@ export function calculateDailySummaries(params: {
       sessions: params.sessions,
       treatmentPlan: params.treatmentPlan,
       now: params.now,
-      timeZone
+      timeZone,
+      hasTrackingStarted: params.hasTrackingStarted,
+      trackingStartedAt: params.trackingStartedAt
     }));
 }
 

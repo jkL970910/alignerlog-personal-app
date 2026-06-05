@@ -8,6 +8,7 @@ import { apiError, apiJson } from "@/server/http";
 import {
   getActiveTreatmentSeries,
   getOrCreateTreatmentPlan,
+  getTrackingStartedAt,
   listDailyNotesForRange,
   listPlannedTraysForSeries,
   listSessionsForRange
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
     const startDate = toDateKey(gridStart);
     const endDate = toDateKey(gridEnd);
     const treatmentPlan = await getOrCreateTreatmentPlan(userId);
+    const trackingStartedAt = await getTrackingStartedAt(userId);
     const activeSeries = await getActiveTreatmentSeries(userId);
     const plannedTrays = activeSeries ? await listPlannedTraysForSeries(userId, activeSeries.id) : [];
     const trayEventsByDate = buildTrayEventsByDate(plannedTrays);
@@ -42,7 +44,14 @@ export async function GET(request: Request) {
       endDate,
       days: dateKeysBetween(parseDateKey(startDate), parseDateKey(endDate)).map((date) => {
         const summary = date <= today
-          ? calculateDailySummary({ date, sessions, treatmentPlan, timeZone })
+          ? calculateDailySummary({
+            date,
+            sessions,
+            treatmentPlan,
+            timeZone,
+            hasTrackingStarted: Boolean(trackingStartedAt),
+            trackingStartedAt
+          })
           : {
             date,
             offMinutes: 0,

@@ -87,6 +87,36 @@ export async function getWearState(userId: string) {
   return existing ? mapWearState(existing) : null;
 }
 
+export async function getTrackingStartedAt(userId: string) {
+  const db = getDb();
+  const [firstAction] = await db.select({ createdAt: wearActionLogs.createdAt })
+    .from(wearActionLogs)
+    .where(eq(wearActionLogs.userId, userId))
+    .orderBy(asc(wearActionLogs.createdAt))
+    .limit(1);
+
+  if (firstAction) {
+    return firstAction.createdAt;
+  }
+
+  const [firstSession] = await db.select({ startAt: offTraySessions.startAt })
+    .from(offTraySessions)
+    .where(eq(offTraySessions.userId, userId))
+    .orderBy(asc(offTraySessions.startAt))
+    .limit(1);
+
+  if (firstSession) {
+    return firstSession.startAt;
+  }
+
+  const [state] = await db.select({ lastChangedAt: wearStates.lastChangedAt })
+    .from(wearStates)
+    .where(eq(wearStates.userId, userId))
+    .limit(1);
+
+  return state?.lastChangedAt ?? null;
+}
+
 export async function getOrCreateWearState(userId: string) {
   const db = getDb();
   const [existing] = await db.select().from(wearStates).where(eq(wearStates.userId, userId)).limit(1);
