@@ -54,6 +54,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [previewPhoto, setPreviewPhoto] = useState<DentalPhotoRecord | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [draft, setDraft] = useState<UploadDraft>(() => ({
@@ -265,21 +266,33 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
 
         {showInlinePhotoList ? (
           <div className="mt-4 space-y-3">
-            {visiblePhotos.length ? visiblePhotos.map((photo) => (
-              <PhotoCard
-                key={photo.id}
-                onDelete={() => deletePhoto(photo.id)}
-                onToggleCompare={() => toggleCompare(photo.id, selectedIds, setSelectedIds)}
-                photo={photo}
-                selected={selectedIds.includes(photo.id)}
-                showCompareAction={!props.hideCompare}
-              />
-            )) : (
+            {visiblePhotos.length ? (
+              <div className="grid grid-cols-3 gap-2">
+                {visiblePhotos.map((photo) => (
+                  <PhotoThumbnail
+                    key={photo.id}
+                    onOpen={() => setPreviewPhoto(photo)}
+                    photo={photo}
+                  />
+                ))}
+              </div>
+            ) : (
               <div className="rounded-lg border border-dashed border-ink/15 bg-mist/50 p-4 text-sm leading-6 text-ink/60">
                 这一天还没有照片记录。点击“新增”后可以拍照或从相册选择已有照片。
               </div>
             )}
           </div>
+        ) : null}
+
+        {previewPhoto ? (
+          <PhotoPreviewModal
+            onClose={() => setPreviewPhoto(null)}
+            onDelete={() => {
+              deletePhoto(previewPhoto.id).then(() => setPreviewPhoto(null)).catch(() => undefined);
+            }}
+            pending={pending}
+            photo={previewPhoto}
+          />
         ) : null}
       </section>
 
@@ -484,6 +497,69 @@ function PhotoCard(props: {
         )}
       </div>
     </article>
+  );
+}
+
+function PhotoThumbnail(props: {
+  photo: DentalPhotoRecord;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      className="overflow-hidden rounded-lg border border-ink/10 bg-white text-left shadow-sm"
+      onClick={props.onOpen}
+      type="button"
+    >
+      <img alt={photoTitle(props.photo)} className="aspect-square w-full object-cover" src={props.photo.imageDataUrl} />
+      <div className="p-2">
+        <p className="truncate text-xs font-semibold text-ink">{viewLabel(props.photo.viewType)}</p>
+        <p className="mt-0.5 truncate text-[11px] text-ink/50">
+          {props.photo.trayNumber ? `第${props.photo.trayNumber}副` : props.photo.stageName || "阶段照片"}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function PhotoPreviewModal(props: {
+  photo: DentalPhotoRecord;
+  pending: boolean;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-end bg-ink/35 p-3 backdrop-blur-sm">
+      <div className="max-h-[88vh] w-full overflow-y-auto rounded-xl bg-white shadow-2xl">
+        <img alt={photoTitle(props.photo)} className="max-h-[56vh] w-full object-contain bg-ink/5" src={props.photo.imageDataUrl} />
+        <div className="space-y-3 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-ink">{photoTitle(props.photo)}</h3>
+              <p className="mt-1 text-sm text-ink/60">
+                {viewLabel(props.photo.viewType)} · {formatSize(props.photo.imageSizeBytes)}
+              </p>
+            </div>
+            <button
+              className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
+              onClick={props.onClose}
+              type="button"
+            >
+              关闭
+            </button>
+          </div>
+          {props.photo.note ? <p className="rounded-md bg-mist/60 p-3 text-sm leading-6 text-ink/70">{props.photo.note}</p> : null}
+          <button
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-coral/25 px-4 text-sm font-semibold text-coral disabled:opacity-60"
+            disabled={props.pending}
+            onClick={props.onDelete}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" />
+            删除这张照片
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
