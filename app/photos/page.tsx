@@ -6,8 +6,8 @@ export default function PhotosPage() {
     <>
       <PageHeader
         eyebrow="牙形档案"
-        title="全部阶段照片"
-        subtitle="这是完整照片档案入口；日常补传建议从日历或趋势的日期详情进入。"
+        title="阶段对比"
+        subtitle="选择两张相同角度照片并排查看；日常补传仍建议从日历当天详情进入。"
       />
       <PhotoRecordsDashboard />
     </>

@@ -272,6 +272,7 @@ export function CalendarDashboard() {
             <section>
               <PhotoRecordsDashboard
                 compact
+                compareHref="/photos"
                 deferUploadForm
                 embeddedDate={selectedDay.date}
                 hideCompare

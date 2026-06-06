@@ -32,6 +32,7 @@ type PhotoRecordsDashboardProps = {
   helper?: string;
   deferUploadForm?: boolean;
   hideCompare?: boolean;
+  compareHref?: string;
 };
 
 const viewOptions: Array<{ value: DentalPhotoViewType; label: string }> = [
@@ -203,13 +204,24 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
             </div>
           </div>
           {props.deferUploadForm ? (
-            <button
-              className="shrink-0 rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"
-              onClick={() => setUploadOpen(true)}
-              type="button"
-            >
-              新增
-            </button>
+            <div className="flex shrink-0 flex-col gap-2">
+              {props.compareHref ? (
+                <button
+                  className="rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-semibold text-ink"
+                  onClick={() => { window.location.href = props.compareHref!; }}
+                  type="button"
+                >
+                  阶段对比
+                </button>
+              ) : null}
+              <button
+                className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"
+                onClick={() => setUploadOpen(true)}
+                type="button"
+              >
+                新增
+              </button>
+            </div>
           ) : null}
         </div>
 
