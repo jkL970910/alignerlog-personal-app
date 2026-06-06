@@ -198,7 +198,7 @@ export function TodayDashboard() {
   const canAdvanceTray = Boolean(isTrayDue && planProgress?.totalTrays && planProgress.currentTrayNumber < planProgress.totalTrays);
   const isWearing = wearState.isWearing;
   const progress = todaySummary.hasData ? Math.min(100, (todaySummary.wearMinutes / treatmentPlan.dailyGoalMinutes) * 100) : 0;
-  const activeOutMinutes = activeSession ? todaySummary.offMinutes : 0;
+  const activeOutMinutes = activeSession ? Math.max(0, Math.floor((Date.now() - new Date(activeSession.startAt).getTime()) / 60000)) : 0;
 
   return (
     <div className="space-y-4">
@@ -414,7 +414,7 @@ export function TodayDashboard() {
 
       <div className="grid grid-cols-2 gap-3">
         <MetricCard label="今日已戴" value={todaySummary.hasData ? formatMinutes(todaySummary.wearMinutes) : "暂无记录"} helper={`目标 ${formatMinutes(treatmentPlan.dailyGoalMinutes)}`} />
-        <MetricCard label={isWearing ? "还差" : "已取下"} value={todaySummary.hasData ? isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes) : "首次打卡后计算"} />
+        <MetricCard label={isWearing ? "还差" : "当前已取下"} value={todaySummary.hasData ? isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes) : "首次打卡后计算"} />
         <MetricCard label="取下次数" value={String(todaySummary.sessionCount)} helper="今日记录" />
         <MetricCard label="总取下" value={formatMinutes(todaySummary.offMinutes)} />
       </div>
