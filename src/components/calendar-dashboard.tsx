@@ -190,7 +190,7 @@ export function CalendarDashboard() {
                   <div className="mt-1 flex items-center gap-1">
                     {day.trayEvents.some((event) => event.kind === "start") ? <span className="h-1.5 w-1.5 rounded-full bg-sage" /> : null}
                     {day.trayEvents.some((event) => event.kind === "end") ? <span className="h-1.5 w-1.5 rounded-full bg-amber" /> : null}
-                    {day.note?.note ? <span className="h-1.5 w-1.5 rounded-full bg-ink/60" /> : null}
+                    {day.notes.length || day.photoCount ? <span className="h-1.5 w-1.5 rounded-full bg-ink/60" /> : null}
                   </div>
                 </button>
               );

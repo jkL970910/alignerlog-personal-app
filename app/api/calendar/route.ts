@@ -10,6 +10,7 @@ import {
   getOrCreateTreatmentPlan,
   getTrackingStartedAt,
   listDailyNotesForRange,
+  listDentalPhotoCountsForRange,
   listPlannedTraysForSeries,
   listSessionsForRange
 } from "@/server/repository";
@@ -36,6 +37,7 @@ export async function GET(request: Request) {
     const sessions = await listSessionsForRange(userId, startDate, endDate, timeZone);
     const notes = await listDailyNotesForRange(userId, startDate, endDate);
     const notesByDate = buildNotesByDate(notes);
+    const photoCountsByDate = await listDentalPhotoCountsForRange(userId, startDate, endDate);
     const today = todayKey(new Date(), timeZone);
 
     return apiJson({
@@ -66,14 +68,18 @@ export async function GET(request: Request) {
 
         const dayNotes = notesByDate.get(date) ?? [];
 
+        const photoCount = photoCountsByDate.get(date) ?? 0;
+        const hasRecord = dayNotes.length > 0 || photoCount > 0;
+
         return {
           date,
           summary,
           note: dayNotes[0] ?? null,
           notes: dayNotes,
+          photoCount,
           trayEvents: trayEventsByDate.get(date) ?? [],
-          hasData: hasCalendarData(summary, dayNotes.length > 0),
-          status: getCalendarStatus(summary, dayNotes.length > 0)
+          hasData: hasCalendarData(summary, hasRecord),
+          status: getCalendarStatus(summary, hasRecord)
         };
       })
     });
@@ -125,8 +131,8 @@ function hasCalendarData(summary: {
   offMinutes: number;
   sessionCount: number;
   hasData: boolean;
-}, hasNote: boolean) {
-  return hasNote || summary.hasData || summary.sessionCount > 0 || summary.offMinutes > 0;
+}, hasRecord: boolean) {
+  return hasRecord || summary.hasData || summary.sessionCount > 0 || summary.offMinutes > 0;
 }
 
 function getCalendarStatus(summary: {
@@ -136,8 +142,8 @@ function getCalendarStatus(summary: {
   goalMinutes: number;
   goalMet: boolean;
   hasData: boolean;
-}, hasNote: boolean) {
-  if (!hasCalendarData(summary, hasNote)) {
+}, hasRecord: boolean) {
+  if (!hasCalendarData(summary, hasRecord)) {
     return "no_data";
   }
 

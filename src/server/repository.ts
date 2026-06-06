@@ -1,11 +1,11 @@
 import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, ne, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
-import { dailyNotes, dentalPhotoRecords, looDentalAiUsageLogs, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import { dailyNotes, dentalPhotoRecords, looDentalAiUsageLogs, looDentalMinisterChatMessages, looDentalMinisterChatSessions, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 import { addDaysToDateKey, dayBounds, todayKey } from "@/lib/dates";
 import type { DentalPhotoViewType, OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentExceptionStatus, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
 
-import { mapDailyNote, mapDentalPhotoRecord, mapLooDentalAiUsageLog, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentExceptionEvent, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
+import { mapDailyNote, mapDentalPhotoRecord, mapLooDentalAiUsageLog, mapLooDentalMinisterChatMessage, mapLooDentalMinisterChatSession, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentExceptionEvent, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
 
 const defaultGoalMinutes = 22 * 60;
 
@@ -254,6 +254,22 @@ export async function listDentalPhotoRecords(userId: string) {
   return rows.map(mapDentalPhotoRecord);
 }
 
+export async function listDentalPhotoCountsForRange(userId: string, startDate: string, endDate: string) {
+  const db = getDb();
+  const rows = await db.select({
+    date: dentalPhotoRecords.date,
+    value: count()
+  }).from(dentalPhotoRecords)
+    .where(and(
+      eq(dentalPhotoRecords.userId, userId),
+      gte(dentalPhotoRecords.date, startDate),
+      lte(dentalPhotoRecords.date, endDate)
+    ))
+    .groupBy(dentalPhotoRecords.date);
+
+  return new Map(rows.map((row) => [row.date, row.value]));
+}
+
 export async function createDentalPhotoRecord(params: {
   userId: string;
   date: string;
@@ -319,6 +335,96 @@ export async function createLooDentalAiUsageLog(params: {
   }).returning();
 
   return mapLooDentalAiUsageLog(created);
+}
+
+export async function createLooDentalMinisterChatSession(userId: string, title = "新对话") {
+  const db = getDb();
+  const now = new Date();
+  const [created] = await db.insert(looDentalMinisterChatSessions).values({
+    userId,
+    title: title.trim().slice(0, 120) || "新对话",
+    createdAt: now,
+    updatedAt: now
+  }).returning();
+
+  return mapLooDentalMinisterChatSession(created);
+}
+
+export async function listLooDentalMinisterChatSessions(userId: string, limit = 12) {
+  const db = getDb();
+  const rows = await db.select().from(looDentalMinisterChatSessions)
+    .where(eq(looDentalMinisterChatSessions.userId, userId))
+    .orderBy(desc(looDentalMinisterChatSessions.updatedAt))
+    .limit(limit);
+
+  return rows.map(mapLooDentalMinisterChatSession);
+}
+
+export async function getLooDentalMinisterChatSession(userId: string, sessionId: string) {
+  const db = getDb();
+  const [session] = await db.select().from(looDentalMinisterChatSessions)
+    .where(and(eq(looDentalMinisterChatSessions.userId, userId), eq(looDentalMinisterChatSessions.id, sessionId)))
+    .limit(1);
+
+  return session ? mapLooDentalMinisterChatSession(session) : null;
+}
+
+export async function listLooDentalMinisterChatMessages(userId: string, sessionId: string, limit = 80) {
+  const db = getDb();
+  const rows = await db.select().from(looDentalMinisterChatMessages)
+    .where(and(eq(looDentalMinisterChatMessages.userId, userId), eq(looDentalMinisterChatMessages.sessionId, sessionId)))
+    .orderBy(asc(looDentalMinisterChatMessages.createdAt))
+    .limit(limit);
+
+  return rows.map(mapLooDentalMinisterChatMessage);
+}
+
+export async function appendLooDentalMinisterChatTurn(params: {
+  userId: string;
+  sessionId?: string | null;
+  question: string;
+  answer: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+  const session = params.sessionId
+    ? await getLooDentalMinisterChatSession(params.userId, params.sessionId)
+    : null;
+  const activeSession = session ?? await createLooDentalMinisterChatSession(params.userId, titleFromQuestion(params.question));
+  const values = [
+    {
+      userId: params.userId,
+      sessionId: activeSession.id,
+      role: "user",
+      content: params.question.trim().slice(0, 1200),
+      createdAt: now
+    },
+    {
+      userId: params.userId,
+      sessionId: activeSession.id,
+      role: "minister",
+      content: params.answer.trim().slice(0, 3000),
+      createdAt: new Date(now.getTime() + 1)
+    }
+  ];
+  const inserted = await db.insert(looDentalMinisterChatMessages).values(values).returning();
+  const titlePatch = activeSession.title === "新对话" ? titleFromQuestion(params.question) : activeSession.title;
+  const [updatedSession] = await db.update(looDentalMinisterChatSessions)
+    .set({
+      title: titlePatch,
+      updatedAt: new Date()
+    })
+    .where(and(eq(looDentalMinisterChatSessions.userId, params.userId), eq(looDentalMinisterChatSessions.id, activeSession.id)))
+    .returning();
+
+  return {
+    session: mapLooDentalMinisterChatSession(updatedSession),
+    messages: inserted.map(mapLooDentalMinisterChatMessage)
+  };
+}
+
+function titleFromQuestion(question: string) {
+  return question.trim().replace(/\s+/g, " ").slice(0, 36) || "新对话";
 }
 
 export async function startOffTraySession(userId: string, reason?: OffTrayReason) {

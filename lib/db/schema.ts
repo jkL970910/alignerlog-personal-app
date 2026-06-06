@@ -335,3 +335,33 @@ export const looDentalAiUsageLogs = pgTable(
     statusCreatedIdx: index("loo_dental_ai_usage_logs_status_created_idx").on(table.status, table.createdAt)
   })
 );
+
+export const looDentalMinisterChatSessions = pgTable(
+  "loo_dental_minister_chat_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    title: varchar("title", { length: 120 }).notNull().default("新对话"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userUpdatedIdx: index("loo_dental_minister_chat_sessions_user_updated_idx").on(table.userId, table.updatedAt)
+  })
+);
+
+export const looDentalMinisterChatMessages = pgTable(
+  "loo_dental_minister_chat_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    sessionId: uuid("session_id").notNull(),
+    role: varchar("role", { length: 20 }).notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    sessionCreatedIdx: index("loo_dental_minister_chat_messages_session_created_idx").on(table.sessionId, table.createdAt),
+    userCreatedIdx: index("loo_dental_minister_chat_messages_user_created_idx").on(table.userId, table.createdAt)
+  })
+);

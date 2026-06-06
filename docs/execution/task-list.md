@@ -154,7 +154,7 @@ Tasks:
 - Add system prompt with dental clear-aligner expert persona and safety boundaries. Implemented first pass.
 - Add usage/error logging lightweight enough for personal use. Implemented with `loo_dental_ai_usage_logs`.
 - Do not expose model/key configuration in product UI. Completed.
-- Add multi-turn persisted chat sessions. Planned.
+- Add multi-turn persisted chat sessions with history list and new-chat action. Implemented.
 - Add richer structured response schema / backend-owned suggested actions. Planned.
 
 Acceptance:
@@ -196,6 +196,7 @@ Tasks:
 - Refine reminder IA: remove the bottom-nav reminder tab, merge push permission/status and reminder rule explanation into Settings -> 提醒偏好, and redirect the old `/reminders` route to Settings. Implemented locally.
 - Refine daily records UX: make saved daily notes visible as independent cards, support multiple notes per day with edit/delete, and move note/photo creation into modal-style forms instead of always-open inputs. Implemented locally.
 - Change Today metric from longest off-tray session to total off-tray time for the day. Implemented locally.
+- Add Calendar day marker for either saved notes or uploaded photos. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:

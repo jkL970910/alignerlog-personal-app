@@ -129,6 +129,23 @@ export type LooDentalAiUsageLog = {
   createdAt: string;
 };
 
+export type LooDentalMinisterChatSession = {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LooDentalMinisterChatMessage = {
+  id: string;
+  userId: string;
+  sessionId: string;
+  role: "user" | "minister";
+  content: string;
+  createdAt: string;
+};
+
 export type ReminderSettings = {
   id: string;
   userId: string;
@@ -168,6 +185,7 @@ export type CalendarDay = {
   summary: DailySummary;
   note: DailyNote | null;
   notes: DailyNote[];
+  photoCount: number;
   trayEvents: CalendarTrayEvent[];
   hasData: boolean;
   status: "no_data" | "goal_met" | "close" | "below_goal";

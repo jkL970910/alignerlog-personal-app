@@ -1,6 +1,6 @@
-import type { DailyNote, DentalPhotoRecord, LooDentalAiUsageLog, OffTraySession, PlannedTray, PushSubscriptionRecord, ReminderJob, ReminderSettings, TreatmentExceptionEvent, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
+import type { DailyNote, DentalPhotoRecord, LooDentalAiUsageLog, LooDentalMinisterChatMessage, LooDentalMinisterChatSession, OffTraySession, PlannedTray, PushSubscriptionRecord, ReminderJob, ReminderSettings, TreatmentExceptionEvent, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
 
-import type { dailyNotes, dentalPhotoRecords, looDentalAiUsageLogs, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import type { dailyNotes, dentalPhotoRecords, looDentalAiUsageLogs, looDentalMinisterChatMessages, looDentalMinisterChatSessions, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 
 type UserRow = typeof users.$inferSelect;
 type TreatmentPlanRow = typeof treatmentPlans.$inferSelect;
@@ -16,6 +16,8 @@ type ReminderJobRow = typeof reminderJobs.$inferSelect;
 type TreatmentExceptionEventRow = typeof treatmentExceptionEvents.$inferSelect;
 type DentalPhotoRecordRow = typeof dentalPhotoRecords.$inferSelect;
 type LooDentalAiUsageLogRow = typeof looDentalAiUsageLogs.$inferSelect;
+type LooDentalMinisterChatSessionRow = typeof looDentalMinisterChatSessions.$inferSelect;
+type LooDentalMinisterChatMessageRow = typeof looDentalMinisterChatMessages.$inferSelect;
 
 export function mapUser(row: UserRow): UserAccount {
   return {
@@ -136,6 +138,22 @@ export function mapLooDentalAiUsageLog(row: LooDentalAiUsageLogRow): LooDentalAi
   return {
     ...row,
     status: row.status as LooDentalAiUsageLog["status"],
+    createdAt: row.createdAt.toISOString()
+  };
+}
+
+export function mapLooDentalMinisterChatSession(row: LooDentalMinisterChatSessionRow): LooDentalMinisterChatSession {
+  return {
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+export function mapLooDentalMinisterChatMessage(row: LooDentalMinisterChatMessageRow): LooDentalMinisterChatMessage {
+  return {
+    ...row,
+    role: row.role as LooDentalMinisterChatMessage["role"],
     createdAt: row.createdAt.toISOString()
   };
 }
