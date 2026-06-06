@@ -1,11 +1,11 @@
 import { and, asc, count, desc, eq, gte, gt, isNull, lte, lt, ne, or } from "drizzle-orm";
 
 import { getDb } from "@/lib/db/client";
-import { dailyNotes, dentalPhotoRecords, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import { dailyNotes, dentalPhotoRecords, looDentalAiUsageLogs, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 import { addDaysToDateKey, dayBounds, todayKey } from "@/lib/dates";
 import type { DentalPhotoViewType, OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentExceptionStatus, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
 
-import { mapDailyNote, mapDentalPhotoRecord, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentExceptionEvent, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
+import { mapDailyNote, mapDentalPhotoRecord, mapLooDentalAiUsageLog, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentExceptionEvent, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
 
 const defaultGoalMinutes = 22 * 60;
 
@@ -295,6 +295,30 @@ export async function deleteDentalPhotoRecord(userId: string, photoId: string) {
   }
 
   return mapDentalPhotoRecord(deleted);
+}
+
+export async function createLooDentalAiUsageLog(params: {
+  userId: string;
+  questionLength: number;
+  status: "ok" | "failed";
+  failureKind?: string | null;
+  errorMessage?: string | null;
+  latencyMs?: number | null;
+  model?: string;
+}) {
+  const db = getDb();
+  const [created] = await db.insert(looDentalAiUsageLogs).values({
+    userId: params.userId,
+    questionLength: params.questionLength,
+    status: params.status,
+    failureKind: params.failureKind?.slice(0, 80) ?? null,
+    errorMessage: params.errorMessage?.slice(0, 1000) ?? null,
+    latencyMs: params.latencyMs ?? null,
+    model: params.model ?? "gpt-5.5",
+    createdAt: new Date()
+  }).returning();
+
+  return mapLooDentalAiUsageLog(created);
 }
 
 export async function startOffTraySession(userId: string, reason?: OffTrayReason) {

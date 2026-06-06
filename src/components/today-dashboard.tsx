@@ -416,7 +416,7 @@ export function TodayDashboard() {
         <MetricCard label="今日已戴" value={todaySummary.hasData ? formatMinutes(todaySummary.wearMinutes) : "暂无记录"} helper={`目标 ${formatMinutes(treatmentPlan.dailyGoalMinutes)}`} />
         <MetricCard label={isWearing ? "还差" : "已取下"} value={todaySummary.hasData ? isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes) : "首次打卡后计算"} />
         <MetricCard label="取下次数" value={String(todaySummary.sessionCount)} helper="今日记录" />
-        <MetricCard label="最长取下" value={formatMinutes(todaySummary.longestOffSessionMinutes)} />
+        <MetricCard label="总取下" value={formatMinutes(todaySummary.offMinutes)} />
       </div>
 
       <button

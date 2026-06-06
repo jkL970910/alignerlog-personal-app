@@ -31,6 +31,8 @@ ALIGNERLOG_AUTH_SECRET="replace-with-at-least-32-random-characters"
 ALIGNERLOG_LOGIN_PASSWORD="replace-with-a-personal-password"
 LOO_DENTAL_OPENROUTER_API_KEY="optional-server-side-ai-key"
 LOO_DENTAL_OPENROUTER_BASE_URL="https://openrouter.icu/v1/responses"
+LOO_DENTAL_PROVIDER_ENABLED="true"
+LOO_DENTAL_DISABLE_RESPONSE_STORAGE="true"
 REPOSITORY_MODE="postgres-drizzle"
 ```
 

@@ -1,6 +1,6 @@
-import type { DailyNote, DentalPhotoRecord, OffTraySession, PlannedTray, PushSubscriptionRecord, ReminderJob, ReminderSettings, TreatmentExceptionEvent, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
+import type { DailyNote, DentalPhotoRecord, LooDentalAiUsageLog, OffTraySession, PlannedTray, PushSubscriptionRecord, ReminderJob, ReminderSettings, TreatmentExceptionEvent, TreatmentPlan, TreatmentSeries, UserAccount, WearActionLog, WearState } from "@/lib/types";
 
-import type { dailyNotes, dentalPhotoRecords, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
+import type { dailyNotes, dentalPhotoRecords, looDentalAiUsageLogs, offTraySessions, plannedTrays, pushSubscriptions, reminderJobs, reminderSettings, treatmentExceptionEvents, treatmentPlans, treatmentSeries, users, wearActionLogs, wearStates } from "@/lib/db/schema";
 
 type UserRow = typeof users.$inferSelect;
 type TreatmentPlanRow = typeof treatmentPlans.$inferSelect;
@@ -15,6 +15,7 @@ type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 type ReminderJobRow = typeof reminderJobs.$inferSelect;
 type TreatmentExceptionEventRow = typeof treatmentExceptionEvents.$inferSelect;
 type DentalPhotoRecordRow = typeof dentalPhotoRecords.$inferSelect;
+type LooDentalAiUsageLogRow = typeof looDentalAiUsageLogs.$inferSelect;
 
 export function mapUser(row: UserRow): UserAccount {
   return {
@@ -128,5 +129,13 @@ export function mapDentalPhotoRecord(row: DentalPhotoRecordRow): DentalPhotoReco
     viewType: row.viewType as DentalPhotoRecord["viewType"],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString()
+  };
+}
+
+export function mapLooDentalAiUsageLog(row: LooDentalAiUsageLogRow): LooDentalAiUsageLog {
+  return {
+    ...row,
+    status: row.status as LooDentalAiUsageLog["status"],
+    createdAt: row.createdAt.toISOString()
   };
 }

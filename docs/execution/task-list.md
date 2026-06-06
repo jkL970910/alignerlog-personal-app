@@ -140,7 +140,7 @@ Acceptance:
 
 ## P0.4 Loo牙大臣 Floating AI Agent
 
-Status: planned
+Status: active first pass implemented
 
 Tasks:
 
@@ -148,12 +148,14 @@ Tasks:
   - `LOO_DENTAL_OPENROUTER_API_KEY`
   - `LOO_DENTAL_OPENROUTER_BASE_URL`
   - fixed model `gpt-5.5`
-  - fixed reasoning effort `medium`
-- Add AI route for Q&A over bounded plan/log context.
-- Add floating mobile component.
-- Add system prompt with dental clear-aligner expert persona and safety boundaries.
-- Add usage/error logging lightweight enough for personal use.
-- Do not expose model/key configuration in product UI.
+  - fixed reasoning effort `medium`. Implemented.
+- Add AI route for Q&A over bounded plan/log context. Implemented as `POST /api/minister/chat`.
+- Add floating mobile component. Implemented as global signed-in `Loo牙大臣` button.
+- Add system prompt with dental clear-aligner expert persona and safety boundaries. Implemented first pass.
+- Add usage/error logging lightweight enough for personal use. Implemented with `loo_dental_ai_usage_logs`.
+- Do not expose model/key configuration in product UI. Completed.
+- Add multi-turn persisted chat sessions. Planned.
+- Add richer structured response schema / backend-owned suggested actions. Planned.
 
 Acceptance:
 
@@ -193,6 +195,7 @@ Tasks:
 - Refine photo IA: remove the bottom-nav photo tab, embed stage-photo upload in Calendar day detail and History day/session editor, and keep `/photos` as a hidden full archive route. Implemented locally.
 - Refine reminder IA: remove the bottom-nav reminder tab, merge push permission/status and reminder rule explanation into Settings -> 提醒偏好, and redirect the old `/reminders` route to Settings. Implemented locally.
 - Refine daily records UX: make saved daily notes visible as independent cards, support multiple notes per day with edit/delete, and move note/photo creation into modal-style forms instead of always-open inputs. Implemented locally.
+- Change Today metric from longest off-tray session to total off-tray time for the day. Implemented locally.
 - Add manual mobile QA checklist for current deployed surfaces. Pending.
 
 Acceptance:

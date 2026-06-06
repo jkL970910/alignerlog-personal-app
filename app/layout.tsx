@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 
 import { BottomNav } from "@/components/bottom-nav";
+import { LooDentalMinister } from "@/components/loo-dental-minister";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { sessionCookieName, verifySessionToken } from "@/server/auth";
 
@@ -35,6 +36,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <ServiceWorkerRegister />
         <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
           <main className={`flex-1 ${signedIn ? "px-4 pb-28 pt-5" : ""}`}>{children}</main>
+          {signedIn ? <LooDentalMinister /> : null}
           {signedIn ? <BottomNav /> : null}
         </div>
       </body>

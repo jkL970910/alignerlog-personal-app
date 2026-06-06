@@ -316,3 +316,22 @@ export const dentalPhotoRecords = pgTable(
     userCreatedIdx: index("dental_photo_records_user_created_idx").on(table.userId, table.createdAt)
   })
 );
+
+export const looDentalAiUsageLogs = pgTable(
+  "loo_dental_ai_usage_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    questionLength: integer("question_length").notNull(),
+    status: varchar("status", { length: 20 }).notNull(),
+    failureKind: varchar("failure_kind", { length: 80 }),
+    errorMessage: text("error_message"),
+    latencyMs: integer("latency_ms"),
+    model: varchar("model", { length: 80 }).notNull().default("gpt-5.5"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userCreatedIdx: index("loo_dental_ai_usage_logs_user_created_idx").on(table.userId, table.createdAt),
+    statusCreatedIdx: index("loo_dental_ai_usage_logs_status_created_idx").on(table.status, table.createdAt)
+  })
+);

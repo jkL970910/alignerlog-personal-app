@@ -17,6 +17,8 @@ ALIGNERLOG_AUTH_SECRET=<32+ character random secret>
 ALIGNERLOG_LOGIN_PASSWORD=<personal login password>
 LOO_DENTAL_OPENROUTER_API_KEY=<server-side OpenRouter key, optional until AI ships>
 LOO_DENTAL_OPENROUTER_BASE_URL=https://openrouter.icu/v1/responses
+LOO_DENTAL_PROVIDER_ENABLED=true
+LOO_DENTAL_DISABLE_RESPONSE_STORAGE=true
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=<web-push public key>
 VAPID_PRIVATE_KEY=<web-push private key>
 VAPID_SUBJECT=mailto:<owner-email>
@@ -117,3 +119,8 @@ The product UI should not expose model or API-key settings. When Loo牙大臣 sh
 the server uses OpenRouter-compatible routing with fixed model `gpt-5.5` and
 fixed reasoning effort `medium`. Store the API key only in local env and Vercel
 environment variables.
+
+The first-pass chat route is `/api/minister/chat`. It uses bounded local app
+context only: current plan/progress, recent wear summaries, active exceptions,
+and reminder settings. It does not send photos, raw notes, action logs, user
+agent data, or unbounded session history to the AI provider.

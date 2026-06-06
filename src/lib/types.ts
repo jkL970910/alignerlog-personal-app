@@ -117,6 +117,18 @@ export type DentalPhotoRecord = {
   updatedAt: string;
 };
 
+export type LooDentalAiUsageLog = {
+  id: string;
+  userId: string;
+  questionLength: number;
+  status: "ok" | "failed";
+  failureKind: string | null;
+  errorMessage: string | null;
+  latencyMs: number | null;
+  model: string;
+  createdAt: string;
+};
+
 export type ReminderSettings = {
   id: string;
   userId: string;
