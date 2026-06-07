@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Camera, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Camera, CheckCircle2, ChevronRight, ImagePlus, Images, Loader2, Pencil, Trash2 } from "lucide-react";
 
 import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
 import type { DentalPhotoRecord, DentalPhotoViewType, PlanProgress, TreatmentSeries } from "@/lib/types";
@@ -35,16 +35,17 @@ type PhotoRecordsDashboardProps = {
   compareHref?: string;
 };
 
-const viewOptions: Array<{ value: DentalPhotoViewType; label: string }> = [
-  { value: "front", label: "正面" },
-  { value: "upper", label: "上牙弓" },
-  { value: "lower", label: "下牙弓" },
-  { value: "left", label: "左侧咬合" },
-  { value: "right", label: "右侧咬合" },
-  { value: "bite", label: "咬合面" },
-  { value: "other", label: "其他" }
+const viewOptions: Array<{ value: DentalPhotoViewType; label: string; helper: string }> = [
+  { value: "front", label: "正面", helper: "自然咬合，手机与牙齿正对。" },
+  { value: "upper", label: "上牙弓", helper: "拍清上排牙弓，保持光线稳定。" },
+  { value: "lower", label: "下牙弓", helper: "拍清下排牙弓，尽量同一距离。" },
+  { value: "left", label: "左侧咬合", helper: "左侧咬合关系，避免斜拍。" },
+  { value: "right", label: "右侧咬合", helper: "右侧咬合关系，角度和左侧对应。" },
+  { value: "bite", label: "咬合面", helper: "上下牙轻咬，记录咬合面变化。" },
+  { value: "other", label: "侧颜/其他", helper: "补充侧面观察、医生要求或特殊情况照片。" }
 ];
 
+const standardViewTypes: DentalPhotoViewType[] = ["front", "upper", "lower", "left", "right", "bite"];
 const maxUploadBytes = 650_000;
 
 export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
@@ -87,6 +88,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
     }
 
     setPhotos(payload.photos);
+    return payload.photos;
   }
 
   async function loadPlanDefaults() {
@@ -136,8 +138,12 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
       }
 
       setSelectedFile(null);
-      setDraft((current) => ({ ...current, note: "" }));
-      await loadPhotos();
+      const nextPhotos = await loadPhotos();
+      setDraft((current) => ({
+        ...current,
+        note: "",
+        viewType: getNextMissingViewType(nextPhotos, current, props.embeddedDate) ?? current.viewType
+      }));
       setMessage("已保存照片记录。");
       setUploadOpen(false);
     } catch (err) {
@@ -209,6 +215,8 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
     .map((id) => photos.find((photo) => photo.id === id))
     .filter((photo): photo is DentalPhotoRecord => Boolean(photo)), [photos, selectedIds]);
   const visiblePhotos = props.embeddedDate ? photos.filter((photo) => photo.date === props.embeddedDate) : photos;
+  const standardCoverage = useMemo(() => getStandardCoverage(photos, draft, props.embeddedDate), [draft, photos, props.embeddedDate]);
+  const sameViewSuggestions = useMemo(() => getSameViewCompareSuggestions(visiblePhotos), [visiblePhotos]);
   const showInlinePhotoList = Boolean(props.compact && props.deferUploadForm);
 
   if (error) {
@@ -225,46 +233,19 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="rounded-full bg-rose/15 p-2 text-rose">
-              <Camera className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-ink">{props.title ?? "新增阶段照片"}</h2>
-              <p className="mt-1 text-sm leading-6 text-ink/60">
-                {props.helper ?? "建议在相同角度、光线和距离下拍摄。照片仅用于自我记录，不提供诊断或换牙套建议。"}
-              </p>
-            </div>
-          </div>
-          {props.deferUploadForm ? (
-            <div className="flex shrink-0 flex-col gap-2">
-              {props.compareHref ? (
-                <button
-                  className="rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-semibold text-ink"
-                  onClick={() => { window.location.href = props.compareHref!; }}
-                  type="button"
-                >
-                  阶段对比
-                </button>
-              ) : null}
-              <button
-                className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"
-                onClick={() => setUploadOpen(true)}
-                type="button"
-              >
-                新增
-              </button>
-            </div>
-          ) : null}
-        </div>
-
-        {props.deferUploadForm && !uploadOpen ? (
-          <p className="mt-3 text-xs leading-5 text-ink/50">
-            {visiblePhotos.length ? `已有 ${visiblePhotos.length} 张照片。` : "还没有照片记录。点击“新增”后再填写照片信息。"}
-          </p>
-        ) : null}
+      <section className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
+        <StandardPhotoChecklist
+          coverage={standardCoverage}
+          helper={props.helper}
+          photoCount={visiblePhotos.length}
+          title={props.title}
+          compareHref={props.compareHref}
+          onPick={(viewType) => {
+            setDraft((current) => ({ ...current, viewType }));
+            setUploadOpen(true);
+          }}
+          onOpenUpload={() => setUploadOpen(true)}
+        />
 
         {(!props.deferUploadForm || uploadOpen) ? (
           <div className={props.deferUploadForm ? "fixed inset-0 z-40 flex items-end bg-ink/35 p-3 backdrop-blur-sm" : ""}>
@@ -272,8 +253,9 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
               {props.deferUploadForm ? (
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="font-semibold text-ink">新增阶段照片</h3>
-                    <p className="mt-1 text-xs leading-5 text-ink/55">保存后会变成独立照片卡片。</p>
+                    <p className="text-xs font-semibold tracking-[0.16em] text-sage">拍照任务</p>
+                    <h3 className="mt-1 font-semibold text-ink">新增{viewLabel(draft.viewType)}照片</h3>
+                    <p className="mt-1 text-xs leading-5 text-ink/55">{viewHelper(draft.viewType)}</p>
                   </div>
                   <button
                     className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
@@ -348,16 +330,39 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
         </div>
 
         {selectedPhotos.length === 2 ? (
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {selectedPhotos.map((photo) => (
-              <PhotoCompareCard key={photo.id} photo={photo} />
-            ))}
-          </div>
+          <>
+            {selectedPhotos[0]?.viewType !== selectedPhotos[1]?.viewType ? (
+              <p className="mt-4 rounded-md border border-amber/20 bg-amber/10 p-3 text-xs leading-5 text-ink/60">
+                两张照片角度不同，建议改选同角度照片再比较。
+              </p>
+            ) : null}
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {selectedPhotos.map((photo) => (
+                <PhotoCompareCard key={photo.id} photo={photo} />
+              ))}
+            </div>
+          </>
         ) : (
           <p className="mt-4 rounded-md bg-mist/70 p-3 text-sm leading-6 text-ink/60">
             当前已选择 {selectedPhotos.length}/2 张。请尽量选择相同角度照片，对比才有意义。
           </p>
         )}
+        {sameViewSuggestions.length ? (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-semibold tracking-[0.16em] text-ink/45">同角度快速对比</p>
+            {sameViewSuggestions.map((suggestion) => (
+              <button
+                className="flex min-h-11 w-full items-center justify-between rounded-md border border-ink/10 bg-mist/50 px-3 text-left text-sm"
+                key={suggestion.viewType}
+                onClick={() => setSelectedIds(suggestion.photos.map((photo) => photo.id))}
+                type="button"
+              >
+                <span className="font-semibold text-ink">{viewLabel(suggestion.viewType)}</span>
+                <span className="text-xs text-ink/55">{suggestion.photos[1].date} → {suggestion.photos[0].date}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </section>
       ) : null}
 
@@ -458,6 +463,9 @@ function PhotoUploadForm(props: {
 
       <div className="space-y-2">
         <p className="text-sm font-medium text-ink">照片</p>
+        <div className="rounded-md border border-[#91cfc3]/25 bg-[#d6f2ec]/45 p-3 text-xs leading-5 text-ink/60">
+          当前任务：{viewLabel(props.draft.viewType)}。{viewHelper(props.draft.viewType)}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-dashed border-ink/20 bg-mist/50 px-3 text-sm font-semibold text-ink">
             拍照上传
@@ -504,6 +512,117 @@ function PhotoUploadForm(props: {
         {props.pending ? "保存中..." : "保存照片记录"}
       </button>
       {props.message ? <p className="text-sm text-ink/60">{props.message}</p> : null}
+    </div>
+  );
+}
+
+function StandardPhotoChecklist(props: {
+  coverage: Array<{ viewType: DentalPhotoViewType; label: string; helper: string; captured: boolean }>;
+  compareHref?: string;
+  helper?: string;
+  photoCount: number;
+  title?: string;
+  onOpenUpload: () => void;
+  onPick: (viewType: DentalPhotoViewType) => void;
+}) {
+  const capturedCount = props.coverage.filter((item) => item.captured).length;
+  const nextMissing = props.coverage.find((item) => !item.captured);
+  const completionPercent = Math.round((capturedCount / props.coverage.length) * 100);
+
+  return (
+    <div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#d6f2ec] via-[#f7efe8] to-[#ffe4e7] p-4">
+        <div className="pointer-events-none absolute -right-10 top-12 h-32 w-32 rounded-full bg-white/30 blur-xl" />
+        <div className="pointer-events-none absolute -left-12 bottom-5 h-28 w-28 rounded-full bg-[#ffeeb3]/45 blur-2xl" />
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold tracking-[0.18em] text-sage">我的整牙日记</p>
+            <h2 className="mt-1 text-2xl font-semibold text-ink">{props.title ?? "阶段照片"}</h2>
+            <p className="mt-1 text-sm leading-6 text-ink/60">
+              {props.helper ?? "按同一组角度记录变化，照片仅用于自我复盘。"}
+            </p>
+          </div>
+          <div className="shrink-0 rounded-full bg-[#fff6bd] px-3 py-1 text-sm font-semibold text-ink shadow-sm">
+            {capturedCount}/6
+          </div>
+        </div>
+
+        <div className="relative mt-4 rounded-[1.25rem] border border-white/60 bg-white/75 p-3 shadow-sm">
+          <div className="mb-3 h-2 overflow-hidden rounded-full bg-white">
+            <div className="h-full rounded-full bg-[#69ad9e]" style={{ width: `${completionPercent}%` }} />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-ink/45">下一张建议</p>
+              <p className="mt-1 text-lg font-semibold text-ink">{nextMissing ? nextMissing.label : "本组已完整"}</p>
+              <p className="mt-1 text-xs leading-5 text-ink/55">
+                {nextMissing ? nextMissing.helper : "可以进入阶段对比，查看同角度变化。"}
+              </p>
+            </div>
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#91cfc3]/25 text-sage">
+              {nextMissing ? <Camera className="h-8 w-8" /> : <CheckCircle2 className="h-8 w-8" />}
+            </div>
+          </div>
+
+          <button
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-[#69ad9e] px-4 text-sm font-semibold text-white shadow-sm disabled:opacity-70"
+            onClick={() => nextMissing ? props.onPick(nextMissing.viewType) : props.onOpenUpload()}
+            type="button"
+          >
+            <ImagePlus className="h-4 w-4" />
+            {nextMissing ? `拍摄${nextMissing.label}` : "继续新增照片"}
+          </button>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              className="flex min-h-10 items-center justify-center gap-2 rounded-md border border-ink/10 bg-white/70 px-3 text-xs font-semibold text-ink"
+              onClick={props.onOpenUpload}
+              type="button"
+            >
+              <Camera className="h-4 w-4" />
+              自选角度
+            </button>
+            {props.compareHref ? (
+              <button
+                className="flex min-h-10 items-center justify-center gap-2 rounded-md border border-ink/10 bg-white/70 px-3 text-xs font-semibold text-ink"
+                onClick={() => { window.location.href = props.compareHref!; }}
+                type="button"
+              >
+                <Images className="h-4 w-4" />
+                阶段对比
+              </button>
+            ) : (
+              <div className="flex min-h-10 items-center justify-center rounded-md border border-ink/10 bg-white/40 px-3 text-xs text-ink/45">
+                已有 {props.photoCount} 张
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="relative mt-3 rounded-xl border border-white/60 bg-white/45 px-3 py-2 text-xs leading-5 text-ink/55">
+          想参考侧脸变化时，用“侧颜/其他”记录同光线、同距离照片即可；本应用不做嘴凸角度测量或治疗判断。
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 p-3">
+        {props.coverage.map((item) => (
+          <button
+            className={`min-h-20 rounded-md border px-3 py-2 text-left transition ${item.captured ? "border-mint/25 bg-mint/5 text-ink" : "border-amber/25 bg-white text-ink"}`}
+            key={item.viewType}
+            onClick={() => props.onPick(item.viewType)}
+            type="button"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold">{item.label}</span>
+              {item.captured ? <CheckCircle2 className="h-4 w-4 text-mint" /> : <ChevronRight className="h-4 w-4 text-amber" />}
+            </div>
+            <p className="mt-1 text-[0.7rem] leading-4 text-ink/50">{item.helper}</p>
+          </button>
+        ))}
+      </div>
+      <p className="px-3 pb-3 text-xs leading-5 text-ink/45">
+        侧颜、嘴凸或贴合变化仅做长期观察记录；是否调整牙套请以牙医/正畸医生指导为准。
+      </p>
     </div>
   );
 }
@@ -720,6 +839,8 @@ function PhotoMetadataFields(props: {
   dateLocked: boolean;
   onDraftChange: (draft: UploadDraft) => void;
 }) {
+  const selectedView = viewOptions.find((option) => option.value === props.draft.viewType);
+
   return (
     <>
       <label className="block text-sm font-medium text-ink">
@@ -769,6 +890,7 @@ function PhotoMetadataFields(props: {
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
+        {selectedView ? <span className="mt-1 block text-xs leading-5 text-ink/50">{selectedView.helper}</span> : null}
       </label>
 
       <label className="block text-sm font-medium text-ink">
@@ -813,6 +935,56 @@ function photoTitle(photo: DentalPhotoRecord) {
 
 function viewLabel(viewType: DentalPhotoViewType) {
   return viewOptions.find((option) => option.value === viewType)?.label ?? "其他";
+}
+
+function viewHelper(viewType: DentalPhotoViewType) {
+  return viewOptions.find((option) => option.value === viewType)?.helper ?? "";
+}
+
+function getStandardCoverage(photos: DentalPhotoRecord[], draft: UploadDraft, embeddedDate?: string) {
+  const targetPhotos = photos.filter((photo) => {
+    if (embeddedDate && photo.date !== embeddedDate) {
+      return false;
+    }
+
+    if (draft.trayNumber && photo.trayNumber !== Number(draft.trayNumber)) {
+      return false;
+    }
+
+    if (draft.stageName && photo.stageName && photo.stageName !== draft.stageName) {
+      return false;
+    }
+
+    return true;
+  });
+
+  return standardViewTypes.map((viewType) => {
+    const option = viewOptions.find((item) => item.value === viewType)!;
+
+    return {
+      viewType,
+      label: option.label,
+      helper: option.helper,
+      captured: targetPhotos.some((photo) => photo.viewType === viewType)
+    };
+  });
+}
+
+function getNextMissingViewType(photos: DentalPhotoRecord[], draft: UploadDraft, embeddedDate?: string) {
+  return getStandardCoverage(photos, draft, embeddedDate).find((item) => !item.captured)?.viewType ?? null;
+}
+
+function getSameViewCompareSuggestions(photos: DentalPhotoRecord[]) {
+  return standardViewTypes
+    .map((viewType) => {
+      const sameView = photos
+        .filter((photo) => photo.viewType === viewType)
+        .sort((left, right) => right.date.localeCompare(left.date) || right.createdAt.localeCompare(left.createdAt))
+        .slice(0, 2);
+
+      return sameView.length === 2 ? { viewType, photos: sameView } : null;
+    })
+    .filter((item): item is { viewType: DentalPhotoViewType; photos: DentalPhotoRecord[] } => Boolean(item));
 }
 
 function formatSize(bytes: number) {

@@ -65,6 +65,23 @@ describe("buildTreatmentPlanImportPreview", () => {
     expect(preview.trays[2]?.status).toBe("current");
   });
 
+  it("calculates current tray progress by elapsed local hours", () => {
+    const preview = buildTreatmentPlanImportPreview({
+      status: "active",
+      seriesType: "active",
+      name: "第一阶段",
+      currentTrayNumber: 2,
+      totalTrays: 4,
+      trayIntervalDays: 7,
+      dailyGoalMinutes: 1320,
+      currentTrayStartDate: "2026-06-04"
+    }, new Date("2026-06-04T16:00:00Z"), "America/Toronto");
+
+    expect(preview.progress.currentTrayElapsedHours).toBe(12);
+    expect(preview.progress.currentTrayTotalHours).toBe(168);
+    expect(preview.progress.currentTrayProgressPercent).toBeCloseTo(7.14, 2);
+  });
+
   it("pauses change countdown for holding status", () => {
     const preview = buildTreatmentPlanImportPreview({
       status: "holding",

@@ -89,7 +89,7 @@ Important boundary: generated rows are planned schedule data, not proof of actua
 
 - Current stage card: show stage type, current-stage tray count, and `正在佩戴第 N 副`.
 - Current stage completion: derived only from the current known series.
-- Current tray cycle progress: derived from current tray day and planned tray interval.
+- Current tray cycle progress: derived from elapsed local hours between current-tray start and next planned change.
 - Do not present an overall-treatment completion percentage unless the value is clinically reliable and explicitly sourced.
 - Current tray day: `第 N 天 / 计划 M 天`.
 - Days until next planned change.

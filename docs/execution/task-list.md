@@ -88,7 +88,7 @@ Tasks:
 Acceptance:
 
 - Today current-plan card emphasizes current-stage semantics: stage type, current-stage total trays, and `正在佩戴第 N 副`.
-- Today current-plan card uses dual progress rings only for current-stage completion and current-tray cycle progress.
+- Today current-plan card uses dual progress rings only for current-stage completion and current-tray cycle progress; current-tray progress is hour-based, not day-only.
 - Today current-plan card does not present an unreliable whole-treatment completion percentage.
 - Today page shows next planned change date and remaining days.
 - If the final tray would end before the next appointment date, Today and Settings suggest confirming `延戴到复诊日`; no schedule is changed until the user confirms.
@@ -196,6 +196,7 @@ Tasks:
 - Add treatment exception lifecycle and Today change-confirmation flow: active/resolved/cancelled exception records, Settings resolve/cancel controls, Today active-exception banner, and explicit confirm-to-advance current tray. Implemented locally.
 - Add dental photo records: authenticated photo upload, client-side compression, date/stage/tray/view metadata, photo archive, delete action, and two-photo side-by-side comparison. Implemented and deployed.
 - Refine photo IA: remove the bottom-nav photo tab, embed stage-photo upload in Calendar day detail and History day/session editor, and keep `/photos` as a hidden full archive route. Implemented locally.
+- Upgrade photo workflow with a six-angle checklist, missing-angle capture shortcuts, same-angle comparison suggestions, and auto-advance to the next missing angle after saving. Implemented locally.
 - Refine reminder IA: remove the bottom-nav reminder tab, merge push permission/status and reminder rule explanation into Settings -> 提醒偏好, and redirect the old `/reminders` route to Settings. Implemented locally.
 - Refine daily records UX: make saved daily notes visible as independent cards, support multiple notes per day with edit/delete, and move note/photo creation into modal-style forms instead of always-open inputs. Implemented locally.
 - Change Today metric from longest off-tray session to total off-tray time for the day. Implemented locally.
@@ -250,6 +251,7 @@ Tasks:
 Acceptance:
 
 - Users can record teeth shape photos by stage without mixing accounts.
+- Users can see which standard angles are missing for the current date/stage/tray and jump directly into that capture.
 - Users can compare two same-angle photos side-by-side.
 - Product copy makes clear that photos are for self-recording, not diagnosis or clinical treatment decisions.
 

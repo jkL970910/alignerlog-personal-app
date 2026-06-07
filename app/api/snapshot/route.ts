@@ -68,7 +68,9 @@ export async function GET(request: Request) {
       currentTrayStartDate: activeSeries.currentTrayStartDate,
       nextChangeDate: activeSeries.nextChangeDate,
       trays: plannedTrays,
-      todayKey: date
+      todayKey: date,
+      today: now,
+      timeZone
     }) : null;
     const appointmentExtensionSuggestion = activeSeries ? getAppointmentExtensionSuggestion({
       currentTrayNumber: activeSeries.currentTrayNumber,

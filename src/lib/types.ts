@@ -308,6 +308,9 @@ export type PlanProgress = {
   overallTotalTrays: number | null;
   overallTreatmentDays: number | null;
   currentTrayDay: number | null;
+  currentTrayElapsedHours: number | null;
+  currentTrayTotalHours: number | null;
+  currentTrayProgressPercent: number | null;
   trayIntervalDays: number;
   daysUntilNextChange: number | null;
   traysRemaining: number | null;

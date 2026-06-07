@@ -657,11 +657,11 @@ function DualProgressRings(props: { stagePercent: number; trayPercent: number })
 }
 
 function getCurrentTrayProgressPercent(progress: NonNullable<AppSnapshot["planProgress"]>) {
-  if (!progress.currentTrayDay || progress.trayIntervalDays <= 0 || progress.label !== "on_track") {
+  if (progress.currentTrayProgressPercent === null || progress.label !== "on_track") {
     return 0;
   }
 
-  return clampPercent((progress.currentTrayDay / progress.trayIntervalDays) * 100);
+  return clampPercent(progress.currentTrayProgressPercent);
 }
 
 function getStageProgressPercent(progress: NonNullable<AppSnapshot["planProgress"]>, currentTrayPercent: number) {

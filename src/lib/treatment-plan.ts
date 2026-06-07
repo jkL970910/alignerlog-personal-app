@@ -1,5 +1,6 @@
-import { addDays, differenceInCalendarDays, format, parseISO, subDays } from "date-fns";
+import { addDays, differenceInCalendarDays, differenceInHours, format, parseISO, subDays } from "date-fns";
 
+import { zonedDateTimeToUtc } from "./dates";
 import { todayKey as getTodayKey } from "./dates";
 import type {
   AppointmentExtensionSuggestion,
@@ -42,7 +43,9 @@ export function buildTreatmentPlanImportPreview(input: TreatmentPlanImportInput,
     currentTrayStartDate: dateKey(currentTrayStartDate),
     nextChangeDate: normalized.nextChangeDate,
     trays,
-    todayKey
+    todayKey,
+    today,
+    timeZone
   });
   const appointmentExtensionSuggestion = getAppointmentExtensionSuggestion({
     currentTrayNumber: normalized.currentTrayNumber,
@@ -117,6 +120,8 @@ export function calculatePlanProgress(params: {
   todayKey?: string;
   timeZone?: string;
 }): PlanProgress {
+  const now = params.today ?? new Date();
+  const timeZone = params.timeZone ?? "UTC";
   const todayKey = params.todayKey ?? getTodayKey(params.today ?? new Date(), params.timeZone);
   const currentStart = parseDate(params.currentTrayStartDate);
   const currentTrayDay = Math.max(1, differenceInCalendarDays(parseDate(todayKey), currentStart) + 1);
@@ -125,6 +130,13 @@ export function calculatePlanProgress(params: {
   const daysUntilNextChange = differenceInCalendarDays(parseDate(nextChangeDate), parseDate(todayKey));
   const estimatedSeriesEndDate = params.trays?.at(-1)?.plannedEndDate
     ?? (params.totalTrays ? dateKey(addDays(currentStart, (params.totalTrays - params.currentTrayNumber + 1) * params.trayIntervalDays - 1)) : null);
+  const currentTrayHourlyProgress = getCurrentTrayHourlyProgress({
+    currentTrayStartDate: params.currentTrayStartDate,
+    nextChangeDate,
+    now,
+    timeZone
+  });
+  const paused = isPausedStatus(params.status);
 
   return {
     status: params.status,
@@ -132,11 +144,14 @@ export function calculatePlanProgress(params: {
     totalTrays: params.totalTrays,
     overallTotalTrays: params.overallTotalTrays ?? params.totalTrays,
     overallTreatmentDays: params.overallTreatmentDays ?? null,
-    currentTrayDay: isPausedStatus(params.status) ? null : currentTrayDay,
+    currentTrayDay: paused ? null : currentTrayDay,
+    currentTrayElapsedHours: paused ? null : currentTrayHourlyProgress.elapsedHours,
+    currentTrayTotalHours: paused ? null : currentTrayHourlyProgress.totalHours,
+    currentTrayProgressPercent: paused ? null : currentTrayHourlyProgress.progressPercent,
     trayIntervalDays: params.trayIntervalDays,
-    daysUntilNextChange: isPausedStatus(params.status) ? null : daysUntilNextChange,
+    daysUntilNextChange: paused ? null : daysUntilNextChange,
     traysRemaining: params.totalTrays ? Math.max(0, params.totalTrays - params.currentTrayNumber) : null,
-    nextChangeDate: isPausedStatus(params.status) ? null : nextChangeDate,
+    nextChangeDate: paused ? null : nextChangeDate,
     estimatedSeriesEndDate,
     label: getProgressLabel(params.status)
   };
@@ -276,6 +291,28 @@ function parseDate(value: string) {
 
 function dateKey(date: Date) {
   return format(date, "yyyy-MM-dd");
+}
+
+function getCurrentTrayHourlyProgress(params: {
+  currentTrayStartDate: string;
+  nextChangeDate: string;
+  now: Date;
+  timeZone: string;
+}) {
+  const start = zonedDateTimeToUtc(params.currentTrayStartDate, 0, 0, 0, params.timeZone);
+  const end = zonedDateTimeToUtc(params.nextChangeDate, 0, 0, 0, params.timeZone);
+  const totalHours = Math.max(1, differenceInHours(end, start));
+  const elapsedHours = Math.min(totalHours, Math.max(0, differenceInHours(params.now, start)));
+
+  return {
+    elapsedHours,
+    totalHours,
+    progressPercent: clampPercent((elapsedHours / totalHours) * 100)
+  };
+}
+
+function clampPercent(value: number) {
+  return Math.min(100, Math.max(0, value));
 }
 
 function dateKeyDiff(left: string, right: string) {
