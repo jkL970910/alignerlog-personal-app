@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Camera, CheckCircle2, ImagePlus, Images, Loader2, Pencil, Trash2 } from "lucide-react";
 
 import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
+import { addDaysToDateKey } from "@/lib/dates";
 import type { DentalPhotoRecord, DentalPhotoViewType, PlanProgress, TreatmentSeries } from "@/lib/types";
 
 import { SetupWarning } from "./setup-warning";
@@ -25,6 +26,8 @@ type UploadDraft = {
   note: string;
 };
 
+type PhotoRangePreset = "7d" | "15d" | "30d" | "all";
+
 type PhotoRecordsDashboardProps = {
   embeddedDate?: string;
   compact?: boolean;
@@ -33,6 +36,7 @@ type PhotoRecordsDashboardProps = {
   deferUploadForm?: boolean;
   hideCompare?: boolean;
   compareHref?: string;
+  mode?: "daily-record" | "comparison";
 };
 
 const viewOptions: Array<{ value: DentalPhotoViewType; label: string; helper: string }> = [
@@ -46,6 +50,12 @@ const viewOptions: Array<{ value: DentalPhotoViewType; label: string; helper: st
 ];
 
 const standardViewTypes: DentalPhotoViewType[] = ["front", "upper", "lower", "left", "right", "bite"];
+const photoRangeOptions: Array<{ value: PhotoRangePreset; label: string }> = [
+  { value: "7d", label: "近7天" },
+  { value: "15d", label: "近15天" },
+  { value: "30d", label: "近30天" },
+  { value: "all", label: "全部" }
+];
 const maxUploadBytes = 650_000;
 
 export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
@@ -59,6 +69,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
   const [previewPhoto, setPreviewPhoto] = useState<DentalPhotoRecord | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [photoRangePreset, setPhotoRangePreset] = useState<PhotoRangePreset>("30d");
   const [draft, setDraft] = useState<UploadDraft>(() => ({
     date: props.embeddedDate ?? getClientDateKey(),
     stageName: "",
@@ -214,9 +225,11 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
   const selectedPhotos = useMemo(() => selectedIds
     .map((id) => photos.find((photo) => photo.id === id))
     .filter((photo): photo is DentalPhotoRecord => Boolean(photo)), [photos, selectedIds]);
+  const comparisonOnly = props.mode === "comparison";
   const visiblePhotos = props.embeddedDate ? photos.filter((photo) => photo.date === props.embeddedDate) : photos;
+  const comparisonPhotos = useMemo(() => filterPhotosByRange(photos, photoRangePreset), [photoRangePreset, photos]);
   const standardCoverage = useMemo(() => getStandardCoverage(photos, draft, props.embeddedDate), [draft, photos, props.embeddedDate]);
-  const sameViewSuggestions = useMemo(() => getSameViewCompareSuggestions(visiblePhotos), [visiblePhotos]);
+  const sameViewSuggestions = useMemo(() => getSameViewCompareSuggestions(comparisonOnly ? comparisonPhotos : visiblePhotos), [comparisonOnly, comparisonPhotos, visiblePhotos]);
   const showInlinePhotoList = Boolean(props.compact && props.deferUploadForm);
 
   if (error) {
@@ -233,6 +246,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
 
   return (
     <div className="space-y-4">
+      {!comparisonOnly ? (
       <section className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
         <StandardPhotoChecklist
           coverage={standardCoverage}
@@ -267,6 +281,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
                 </div>
               ) : null}
               <PhotoUploadForm
+                coverage={standardCoverage}
                 draft={draft}
                 message={message}
                 onDraftChange={setDraft}
@@ -312,6 +327,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
           />
         ) : null}
       </section>
+      ) : null}
 
       {!props.hideCompare ? (
       <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-sm">
@@ -366,7 +382,35 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
       </section>
       ) : null}
 
-      {!showInlinePhotoList ? (
+      {comparisonOnly ? (
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-ink">选择照片</h2>
+          <p className="mt-1 text-sm leading-6 text-ink/60">请选择不同日期、相同角度的两张做阶段对比。</p>
+        </div>
+        <PhotoRangeTabs
+          active={photoRangePreset}
+          onChange={setPhotoRangePreset}
+          photosCount={comparisonPhotos.length}
+        />
+        {comparisonPhotos.length ? (
+          <div className="grid grid-cols-3 gap-2">
+            {comparisonPhotos.map((photo) => (
+              <PhotoSelectTile
+                key={photo.id}
+                onToggle={() => toggleCompare(photo.id, selectedIds, setSelectedIds)}
+                photo={photo}
+                selected={selectedIds.includes(photo.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-ink/10 bg-white/80 p-4 text-sm leading-6 text-ink/60">
+            这个时间范围还没有照片。可以切到更长时间范围，或先从日历当天详情添加照片。
+          </div>
+        )}
+      </section>
+      ) : !showInlinePhotoList ? (
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-ink">{props.compact ? "当天照片" : "照片档案"}</h2>
         {visiblePhotos.length ? visiblePhotos.map((photo) => (
@@ -401,6 +445,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
 }
 
 function PhotoUploadForm(props: {
+  coverage: Array<{ viewType: DentalPhotoViewType; label: string; helper: string; captured: boolean }>;
   draft: UploadDraft;
   selectedFile: File | null;
   message: string | null;
@@ -412,6 +457,7 @@ function PhotoUploadForm(props: {
 }) {
   const standardOptions = viewOptions.filter((option) => standardViewTypes.includes(option.value));
   const extraOptions = viewOptions.filter((option) => !standardViewTypes.includes(option.value));
+  const capturedCount = props.coverage.filter((item) => item.captured).length;
 
   return (
     <div className="space-y-3">
@@ -452,32 +498,48 @@ function PhotoUploadForm(props: {
       </div>
 
       <div className="space-y-2">
-        <div>
-          <p className="text-sm font-medium text-ink">选择拍摄角度</p>
-          <p className="mt-1 text-xs leading-5 text-ink/50">先选角度，再上传照片。保持同角度才方便后续对比。</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-ink">选择拍摄角度</p>
+            <p className="mt-1 text-xs leading-5 text-ink/50">标准角度完成度 {capturedCount}/6；保持同角度才方便后续对比。</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#fff6bd] px-2 py-1 text-xs font-semibold text-ink">
+            {capturedCount}/6
+          </span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="overflow-hidden rounded-md border border-ink/10 bg-white">
           {standardOptions.map((option) => (
             <button
-              className={`min-h-16 rounded-md border px-3 py-2 text-left transition ${props.draft.viewType === option.value ? "border-[#69ad9e] bg-[#d6f2ec]/70 text-ink ring-2 ring-[#69ad9e]/15" : "border-ink/10 bg-white text-ink"}`}
+              className={`flex min-h-14 w-full items-center justify-between gap-3 border-b border-ink/10 px-3 py-2 text-left last:border-b-0 ${props.draft.viewType === option.value ? "bg-[#d6f2ec]/70" : "bg-white"}`}
               key={option.value}
               onClick={() => props.onDraftChange({ ...props.draft, viewType: option.value })}
               type="button"
             >
-              <span className="text-sm font-semibold">{option.label}</span>
-              <span className="mt-1 block text-[0.7rem] leading-4 text-ink/50">{option.helper}</span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-ink">{option.label}</span>
+                <span className="mt-0.5 block truncate text-xs text-ink/50">{option.helper}</span>
+              </span>
+              <AngleStatusBadge
+                captured={props.coverage.find((item) => item.viewType === option.value)?.captured ?? false}
+                selected={props.draft.viewType === option.value}
+              />
             </button>
           ))}
         </div>
         {extraOptions.map((option) => (
           <button
-            className={`min-h-14 w-full rounded-md border px-3 py-2 text-left transition ${props.draft.viewType === option.value ? "border-[#69ad9e] bg-[#d6f2ec]/70 text-ink ring-2 ring-[#69ad9e]/15" : "border-ink/10 bg-white text-ink"}`}
+            className={`flex min-h-14 w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition ${props.draft.viewType === option.value ? "border-[#69ad9e] bg-[#d6f2ec]/70 text-ink ring-2 ring-[#69ad9e]/15" : "border-ink/10 bg-white text-ink"}`}
             key={option.value}
             onClick={() => props.onDraftChange({ ...props.draft, viewType: option.value })}
             type="button"
           >
-            <span className="text-sm font-semibold">{option.label}</span>
-            <span className="mt-1 block text-xs leading-5 text-ink/50">{option.helper}</span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">{option.label}</span>
+              <span className="mt-0.5 block truncate text-xs text-ink/50">{option.helper}</span>
+            </span>
+            <span className="shrink-0 rounded-full bg-mist px-2 py-1 text-[0.65rem] font-semibold text-ink/50">
+              可选
+            </span>
           </button>
         ))}
       </div>
@@ -534,6 +596,22 @@ function PhotoUploadForm(props: {
       </button>
       {props.message ? <p className="text-sm text-ink/60">{props.message}</p> : null}
     </div>
+  );
+}
+
+function AngleStatusBadge(props: { captured: boolean; selected: boolean }) {
+  if (props.selected) {
+    return (
+      <span className="shrink-0 rounded-full bg-[#69ad9e] px-2 py-1 text-[0.65rem] font-semibold text-white">
+        当前
+      </span>
+    );
+  }
+
+  return (
+    <span className={`shrink-0 rounded-full px-2 py-1 text-[0.65rem] font-semibold ${props.captured ? "bg-mint/15 text-mint" : "bg-amber/15 text-amber"}`}>
+      {props.captured ? "已拍" : "待拍"}
+    </span>
   );
 }
 
@@ -595,36 +673,24 @@ function StandardPhotoChecklist(props: {
             <ImagePlus className="h-4 w-4" />
             添加照片
           </button>
-
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button
-              className="flex min-h-10 items-center justify-center gap-2 rounded-md border border-ink/10 bg-white/70 px-3 text-xs font-semibold text-ink"
-              onClick={props.onOpenUpload}
-              type="button"
-            >
-              <Camera className="h-4 w-4" />
-              自选角度
-            </button>
-            {props.compareHref ? (
-              <button
-                className="flex min-h-10 items-center justify-center gap-2 rounded-md border border-ink/10 bg-white/70 px-3 text-xs font-semibold text-ink"
-                onClick={() => { window.location.href = props.compareHref!; }}
-                type="button"
-              >
-                <Images className="h-4 w-4" />
-                阶段对比
-              </button>
-            ) : (
-              <div className="flex min-h-10 items-center justify-center rounded-md border border-ink/10 bg-white/40 px-3 text-xs text-ink/45">
-                已有 {props.photoCount} 张
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="relative mt-3 rounded-xl border border-white/60 bg-white/45 px-3 py-2 text-xs leading-5 text-ink/55">
           想参考侧脸变化时，用“侧颜/其他”记录同光线、同距离照片即可；本应用不做嘴凸角度测量或治疗判断。
         </div>
+        {props.compareHref ? (
+          <button
+            className="relative mt-3 flex min-h-11 w-full items-center justify-between rounded-xl border border-white/70 bg-white/65 px-3 text-left text-sm font-semibold text-ink shadow-sm"
+            onClick={() => { window.location.href = props.compareHref!; }}
+            type="button"
+          >
+            <span className="flex items-center gap-2">
+              <Images className="h-4 w-4 text-sage" />
+              查看阶段对比
+            </span>
+            <span className="text-xs font-medium text-ink/45">已有 {props.photoCount} 张</span>
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -694,6 +760,57 @@ function PhotoThumbnail(props: {
         <p className="truncate text-xs font-semibold text-ink">{viewLabel(props.photo.viewType)}</p>
         <p className="mt-0.5 truncate text-[11px] text-ink/50">
           {props.photo.trayNumber ? `第${props.photo.trayNumber}副` : props.photo.stageName || "阶段照片"}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function PhotoRangeTabs(props: {
+  active: PhotoRangePreset;
+  photosCount: number;
+  onChange: (preset: PhotoRangePreset) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {photoRangeOptions.map((option) => (
+          <button
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${props.active === option.value ? "bg-ink text-white" : "border border-ink/10 bg-white text-ink/60"}`}
+            key={option.value}
+            onClick={() => props.onChange(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-ink/45">当前范围 {props.photosCount} 张照片。</p>
+    </div>
+  );
+}
+
+function PhotoSelectTile(props: {
+  photo: DentalPhotoRecord;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      className={`overflow-hidden rounded-lg border bg-white text-left shadow-sm transition ${props.selected ? "border-rose ring-2 ring-rose/25" : "border-ink/10"}`}
+      onClick={props.onToggle}
+      type="button"
+    >
+      <div className="relative">
+        <img alt={photoTitle(props.photo)} className="aspect-square w-full object-cover" src={props.photo.imageDataUrl} />
+        <span className={`absolute right-1.5 top-1.5 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold shadow-sm ${props.selected ? "bg-rose text-white" : "bg-white/85 text-ink/55"}`}>
+          {props.selected ? "已选" : viewLabel(props.photo.viewType)}
+        </span>
+      </div>
+      <div className="p-2">
+        <p className="truncate text-xs font-semibold text-ink">{props.photo.date}</p>
+        <p className="mt-0.5 truncate text-[11px] text-ink/50">
+          {props.photo.trayNumber ? `第${props.photo.trayNumber}副` : props.photo.stageName || viewLabel(props.photo.viewType)}
         </p>
       </div>
     </button>
@@ -988,6 +1105,20 @@ function getSameViewCompareSuggestions(photos: DentalPhotoRecord[]) {
       return sameView.length === 2 ? { viewType, photos: sameView } : null;
     })
     .filter((item): item is { viewType: DentalPhotoViewType; photos: DentalPhotoRecord[] } => Boolean(item));
+}
+
+function filterPhotosByRange(photos: DentalPhotoRecord[], preset: PhotoRangePreset) {
+  const sortedPhotos = [...photos].sort((left, right) => right.date.localeCompare(left.date) || right.createdAt.localeCompare(left.createdAt));
+
+  if (preset === "all") {
+    return sortedPhotos;
+  }
+
+  const today = getClientDateKey();
+  const days = preset === "7d" ? 7 : preset === "15d" ? 15 : 30;
+  const startDate = addDaysToDateKey(today, -(days - 1));
+
+  return sortedPhotos.filter((photo) => photo.date >= startDate && photo.date <= today);
 }
 
 function formatSize(bytes: number) {
