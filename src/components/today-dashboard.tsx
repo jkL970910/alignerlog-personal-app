@@ -630,22 +630,39 @@ function formatExceptionType(type: NonNullable<AppSnapshot["activeException"]>["
 function DualProgressRings(props: { stagePercent: number; trayPercent: number }) {
   const stagePercent = clampPercent(props.stagePercent);
   const trayPercent = clampPercent(props.trayPercent);
+  const stageRing = getCircleProgress(42, stagePercent);
+  const trayRing = getCircleProgress(28, trayPercent);
 
   return (
     <div className="shrink-0 text-center">
       <p className="mb-1 text-[0.65rem] font-medium text-ink/50">阶段完成进度</p>
       <div className="relative h-24 w-24">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 rounded-full"
-          style={{ background: progressRingBackground(stagePercent, "#6f8f7c", "#e8efeb") }}
-        />
-        <div className="absolute inset-2 rounded-full bg-white" />
-        <div
-          aria-hidden="true"
-          className="absolute inset-4 rounded-full"
-          style={{ background: progressRingBackground(trayPercent, "#c7655d", "#f1e7df") }}
-        />
+        <svg aria-hidden="true" className="absolute inset-0 h-24 w-24 -rotate-90" viewBox="0 0 96 96">
+          <circle cx="48" cy="48" fill="none" r="42" stroke="#e8efeb" strokeWidth="7" />
+          <circle
+            cx="48"
+            cy="48"
+            fill="none"
+            r="42"
+            stroke="#6f8f7c"
+            strokeDasharray={stageRing.circumference}
+            strokeDashoffset={stageRing.offset}
+            strokeLinecap="round"
+            strokeWidth="7"
+          />
+          <circle cx="48" cy="48" fill="none" r="28" stroke="#f1e7df" strokeWidth="7" />
+          <circle
+            cx="48"
+            cy="48"
+            fill="none"
+            r="28"
+            stroke="#c7655d"
+            strokeDasharray={trayRing.circumference}
+            strokeDashoffset={trayRing.offset}
+            strokeLinecap="round"
+            strokeWidth="7"
+          />
+        </svg>
         <div className="absolute inset-6 flex flex-col items-center justify-center rounded-full bg-white">
           <p className="text-sm font-semibold leading-none text-ink">{formatPercent(stagePercent)}</p>
           <p className="mt-1 text-[0.6rem] leading-none text-ink/45">阶段</p>
@@ -675,8 +692,13 @@ function getStageProgressPercent(progress: NonNullable<AppSnapshot["planProgress
   return clampPercent(((completedTrays + currentTrayFraction) / progress.totalTrays) * 100);
 }
 
-function progressRingBackground(percent: number, activeColor: string, inactiveColor: string) {
-  return `conic-gradient(${activeColor} ${clampPercent(percent)}%, ${inactiveColor} 0)`;
+function getCircleProgress(radius: number, percent: number) {
+  const circumference = 2 * Math.PI * radius;
+
+  return {
+    circumference,
+    offset: circumference * (1 - clampPercent(percent) / 100)
+  };
 }
 
 function clampPercent(value: number) {
