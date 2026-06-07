@@ -87,8 +87,11 @@ Tasks:
 
 Acceptance:
 
-- Today page shows `第 X / Y 副`.
+- Today current-plan card emphasizes current-stage semantics: stage type, current-stage total trays, and `正在佩戴第 N 副`.
+- Today current-plan card uses dual progress rings only for current-stage completion and current-tray cycle progress.
+- Today current-plan card does not present an unreliable whole-treatment completion percentage.
 - Today page shows next planned change date and remaining days.
+- If the final tray would end before the next appointment date, Today and Settings suggest confirming `延戴到复诊日`; no schedule is changed until the user confirms.
 - Calendar shows tray boundaries without implying medical approval to change trays.
 
 ## P0.3.1 Data Truthfulness And Empty-State Semantics
@@ -253,5 +256,17 @@ Acceptance:
 Acceptance:
 
 - User can pause or extend current schedule without losing history.
+
+## P1 History Streak And Monthly Goal Stats
+
+Status: implemented and deployed
+
+Tasks:
+
+- Extend History metrics with current goal streak and month-to-date goal stats while continuing to exclude today from completed-day calculations. Implemented and deployed.
+- Keep `/api/summaries` backward compatible while returning the new History metrics fields. Implemented and deployed.
+- Refresh History top metric cards for mobile: current streak, month-to-date goals, 7-day average, and longest streak. Implemented and deployed.
+- Add regression tests for current streak, broken streak, month-to-date stats, and excluding today. Implemented.
+- Add History range filters for 7 days, 15 days, 30 days, current month, and selected historical month; daily list now shows all recorded summaries in the active range. Implemented and deployed.
 - Forecast clearly says "current known series only" when future refinements are unknown.
 - Exception flows record events without giving clinical instructions.

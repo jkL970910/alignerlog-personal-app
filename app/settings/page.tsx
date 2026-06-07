@@ -7,7 +7,7 @@ export default function SettingsPage() {
       <PageHeader
         eyebrow="宝库设置"
         title="设置"
-        subtitle="管理每日目标、当前牙套计划、提醒偏好和数据导出。"
+        subtitle="管理每日目标、当前阶段计划、提醒偏好和数据导出。"
       />
       <SettingsDashboard />
     </>

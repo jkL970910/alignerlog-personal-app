@@ -101,10 +101,39 @@ export function calculateDailySummaries(params: {
     }));
 }
 
-export function calculateHistoryMetrics(summaries: DailySummary[], options?: { today?: string }) {
-  const dated = summaries
-    .filter((summary) => summary.hasData && (!options?.today || summary.date < options.today))
+export type MonthlyGoalStats = {
+  month: string;
+  goalMetDays: number;
+  trackedDays: number;
+  recordedDays: number;
+  elapsedDays: number;
+  recordedGoalRate: number;
+  calendarGoalRate: number;
+};
+
+export type GoalStats = {
+  goalMetDays: number;
+  trackedDays: number;
+  goalRate: number;
+};
+
+export type HistoryMetrics = {
+  sevenDayAverage: number;
+  thirtyDayAverage: number;
+  goalAchievementRate: number;
+  longestGoalStreak: number;
+  currentGoalStreak: number;
+  monthlyGoalStats: MonthlyGoalStats;
+  overallGoalStats: GoalStats;
+  averageOffTrayDuration: number;
+  longestOffTraySession: number;
+};
+
+export function calculateHistoryMetrics(summaries: DailySummary[], options?: { today?: string }): HistoryMetrics {
+  const completed = summaries
+    .filter((summary) => !options?.today || summary.date < options.today)
     .sort((a, b) => a.date.localeCompare(b.date));
+  const dated = completed.filter((summary) => summary.hasData);
   const last7 = dated.slice(-7);
   const last30 = dated.slice(-30);
   const goalDays = dated.filter((summary) => summary.goalMet).length;
@@ -116,6 +145,9 @@ export function calculateHistoryMetrics(summaries: DailySummary[], options?: { t
     thirtyDayAverage: average(last30.map((summary) => summary.wearMinutes)),
     goalAchievementRate: dated.length ? (goalDays / dated.length) * 100 : 0,
     longestGoalStreak: longestStreak(dated),
+    currentGoalStreak: currentStreak(dated),
+    monthlyGoalStats: calculateMonthlyGoalStats(completed, options?.today),
+    overallGoalStats: calculateOverallGoalStats(dated),
     averageOffTrayDuration: totalSessions ? totalOffMinutes / totalSessions : 0,
     longestOffTraySession: dated.reduce((longest, summary) => Math.max(longest, summary.longestOffSessionMinutes), 0)
   };
@@ -143,6 +175,51 @@ function longestStreak(summaries: DailySummary[]) {
   });
 
   return longest;
+}
+
+function currentStreak(summaries: DailySummary[]) {
+  let streak = 0;
+
+  for (let index = summaries.length - 1; index >= 0; index -= 1) {
+    if (!summaries[index].goalMet) {
+      break;
+    }
+
+    streak += 1;
+  }
+
+  return streak;
+}
+
+function calculateMonthlyGoalStats(summaries: DailySummary[], today?: string): MonthlyGoalStats {
+  const referenceDate = today ?? summaries[summaries.length - 1]?.date ?? todayKey();
+  const month = referenceDate.slice(0, 7);
+  const monthlySummaries = summaries
+    .filter((summary) => summary.date.startsWith(`${month}-`) && summary.hasData);
+  const goalMetDays = monthlySummaries.filter((summary) => summary.goalMet).length;
+  const trackedDays = monthlySummaries.length;
+  const goalRate = trackedDays ? (goalMetDays / trackedDays) * 100 : 0;
+
+  return {
+    month,
+    goalMetDays,
+    trackedDays,
+    recordedDays: trackedDays,
+    elapsedDays: trackedDays,
+    recordedGoalRate: goalRate,
+    calendarGoalRate: goalRate
+  };
+}
+
+function calculateOverallGoalStats(summaries: DailySummary[]): GoalStats {
+  const goalMetDays = summaries.filter((summary) => summary.goalMet).length;
+  const trackedDays = summaries.length;
+
+  return {
+    goalMetDays,
+    trackedDays,
+    goalRate: trackedDays ? (goalMetDays / trackedDays) * 100 : 0
+  };
 }
 
 function clamp(value: number, low: number, high: number) {

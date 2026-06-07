@@ -2,6 +2,7 @@ import { addDays, differenceInCalendarDays, format, parseISO, subDays } from "da
 
 import { todayKey as getTodayKey } from "./dates";
 import type {
+  AppointmentExtensionSuggestion,
   PlanProgress,
   PlannedTrayDraft,
   PlannedTrayStatus,
@@ -43,6 +44,12 @@ export function buildTreatmentPlanImportPreview(input: TreatmentPlanImportInput,
     trays,
     todayKey
   });
+  const appointmentExtensionSuggestion = getAppointmentExtensionSuggestion({
+    currentTrayNumber: normalized.currentTrayNumber,
+    totalTrays: normalized.totalTrays,
+    appointmentDate: normalized.appointmentDate,
+    trays
+  });
 
   return {
     series: {
@@ -64,7 +71,35 @@ export function buildTreatmentPlanImportPreview(input: TreatmentPlanImportInput,
     },
     trays,
     progress,
+    appointmentExtensionSuggestion,
     safetyNote: treatmentSafetyNote
+  };
+}
+
+export function getAppointmentExtensionSuggestion(params: {
+  currentTrayNumber: number;
+  totalTrays: number | null;
+  appointmentDate?: string | null;
+  trays: Array<Pick<PlannedTrayDraft, "trayNumber" | "plannedEndDate">>;
+}): AppointmentExtensionSuggestion | null {
+  if (!params.totalTrays || params.currentTrayNumber !== params.totalTrays || !params.appointmentDate) {
+    return null;
+  }
+
+  validateDateKey(params.appointmentDate);
+
+  const lastTray = params.trays.find((tray) => tray.trayNumber === params.currentTrayNumber);
+
+  if (!lastTray || params.appointmentDate <= lastTray.plannedEndDate) {
+    return null;
+  }
+
+  return {
+    kind: "extend_last_tray_to_appointment",
+    trayNumber: params.currentTrayNumber,
+    plannedEndDate: lastTray.plannedEndDate,
+    appointmentDate: params.appointmentDate,
+    extensionDays: dateKeyDiff(params.appointmentDate, lastTray.plannedEndDate)
   };
 }
 
@@ -178,11 +213,11 @@ function normalizeImportInput(input: TreatmentPlanImportInput): TreatmentPlanImp
   }
 
   if (input.overallTotalTrays !== undefined && (!Number.isInteger(input.overallTotalTrays) || input.overallTotalTrays < input.currentTrayNumber)) {
-    throw new Error("全程总副数不能小于当前副数。");
+    throw new Error("整体疗程预估副数不能小于当前副数。");
   }
 
   if (input.overallTreatmentDays !== undefined && (!Number.isInteger(input.overallTreatmentDays) || input.overallTreatmentDays < 1)) {
-    throw new Error("治疗总周期必须大于 0 天。");
+    throw new Error("整体疗程预估天数必须大于 0 天。");
   }
 
   if (!Number.isInteger(input.trayIntervalDays) || input.trayIntervalDays < 1 || input.trayIntervalDays > 30) {
@@ -241,4 +276,13 @@ function parseDate(value: string) {
 
 function dateKey(date: Date) {
   return format(date, "yyyy-MM-dd");
+}
+
+function dateKeyDiff(left: string, right: string) {
+  const [leftYear, leftMonth, leftDay] = left.split("-").map(Number);
+  const [rightYear, rightMonth, rightDay] = right.split("-").map(Number);
+  const leftMs = Date.UTC(leftYear, leftMonth - 1, leftDay);
+  const rightMs = Date.UTC(rightYear, rightMonth - 1, rightDay);
+
+  return Math.round((leftMs - rightMs) / 86_400_000);
 }

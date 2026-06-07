@@ -4,7 +4,7 @@ import { addDays, format, isValid, parseISO, subDays } from "date-fns";
 import { useEffect, useState } from "react";
 import { Bell, Cloud, Download, Loader2, Sparkles, Timer } from "lucide-react";
 
-import type { PlanProgress, ReminderSettings, TreatmentExceptionEvent, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
+import type { AppointmentExtensionSuggestion, PlanProgress, ReminderSettings, TreatmentExceptionEvent, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportInput, TreatmentPlanImportPreview, TreatmentSeries, TreatmentSeriesType, TreatmentStatus } from "@/lib/types";
 import { formatMinutes } from "@/lib/format";
 import {
   getClientDateKey,
@@ -25,6 +25,7 @@ type SettingsPayload = {
   reminderSettings: ReminderSettings;
   activeSeries: TreatmentSeries | null;
   planProgress: PlanProgress | null;
+  appointmentExtensionSuggestion?: AppointmentExtensionSuggestion | null;
   exceptionEvents: TreatmentExceptionEvent[];
 };
 
@@ -132,6 +133,7 @@ export function SettingsDashboard() {
   const [exceptionNote, setExceptionNote] = useState("");
   const [exceptionMessage, setExceptionMessage] = useState<string | null>(null);
   const [exceptionActionPendingId, setExceptionActionPendingId] = useState<string | null>(null);
+  const [appointmentExtendPending, setAppointmentExtendPending] = useState(false);
 
   useEffect(() => {
     loadSettings().catch((err: Error) => setError(err.message));
@@ -397,6 +399,47 @@ export function SettingsDashboard() {
     }
   }
 
+  async function extendLastTrayToAppointment() {
+    if (!settings?.appointmentExtensionSuggestion) {
+      return;
+    }
+
+    const suggestion = settings.appointmentExtensionSuggestion;
+    setAppointmentExtendPending(true);
+    setExceptionMessage(null);
+
+    try {
+      const response = await fetch("/api/treatment-plan/exception", {
+        method: "POST",
+        headers: timeZoneHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          eventType: "tray_extension",
+          eventDate: getClientDateKey(),
+          extensionDays: suggestion.extensionDays,
+          note: `默认延戴到复诊日 ${suggestion.appointmentDate}。`
+        })
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "无法延戴到复诊日。");
+      }
+
+      setSettings({
+        ...settings,
+        activeSeries: payload.series,
+        planProgress: payload.progress,
+        appointmentExtensionSuggestion: null,
+        exceptionEvents: [payload.event, ...settings.exceptionEvents].slice(0, 5)
+      });
+      setExceptionMessage(`已将第 ${suggestion.trayNumber} 副延戴到 ${formatDateShort(suggestion.appointmentDate)}。`);
+    } catch (err) {
+      setExceptionMessage(err instanceof Error ? err.message : "无法延戴到复诊日。");
+    } finally {
+      setAppointmentExtendPending(false);
+    }
+  }
+
   async function updateException(eventId: string, action: "resolve" | "cancel") {
     if (!settings) {
       return;
@@ -465,9 +508,10 @@ export function SettingsDashboard() {
   const progress = settings.planProgress;
   const isNewPlanMode = planSetupMode === "new";
   const showPlanEditor = Boolean(planEditorOpen && planSetupMode);
-  const planEditorTitle = hasRealPlan && editingExistingPlan ? "修改当前计划" : isNewPlanMode ? "开始新计划" : "导入已进行计划";
+  const planEditorTitle = hasRealPlan && editingExistingPlan ? "修改当前阶段计划" : isNewPlanMode ? "开始新计划" : "导入已进行阶段";
   const detectedTimeZone = getDetectedTimeZone();
   const exportTimeZone = encodeURIComponent(timeZone);
+  const appointmentExtensionSuggestion = settings.appointmentExtensionSuggestion ?? null;
 
   return (
     <div className="space-y-4">
@@ -548,13 +592,21 @@ export function SettingsDashboard() {
               </button>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-              <PreviewMetric label="当前牙套" value={`第 ${progress.currentTrayNumber} / ${progress.totalTrays ?? "?"} 副`} />
+              <PreviewMetric label="本阶段牙套" value={`第 ${progress.currentTrayNumber} / ${progress.totalTrays ?? "?"} 副`} />
               <PreviewMetric label="当前第几天" value={progress.currentTrayDay ? `第 ${progress.currentTrayDay} 天` : "暂停中"} />
               <PreviewMetric label="下次换期" value={progress.nextChangeDate ?? "按医生安排"} />
               <PreviewMetric label="剩余副数" value={progress.traysRemaining === null ? "未知" : `${progress.traysRemaining} 副`} />
-              <PreviewMetric label="全程副数" value={progress.overallTotalTrays ? `${progress.overallTotalTrays} 副` : "未知"} />
-              <PreviewMetric label="治疗总周期" value={progress.overallTreatmentDays ? `${progress.overallTreatmentDays} 天` : "未知"} />
+              <PreviewMetric label="本阶段总副数" value={progress.totalTrays ? `${progress.totalTrays} 副` : "未知"} />
+              <PreviewMetric label="整体疗程预估" value={progress.overallTreatmentDays ? `${progress.overallTreatmentDays} 天` : "未知"} />
             </div>
+            {appointmentExtensionSuggestion ? (
+              <AppointmentExtensionCard
+                actionLabel="延戴到复诊日"
+                pending={appointmentExtendPending}
+                suggestion={appointmentExtensionSuggestion}
+                onConfirm={extendLastTrayToAppointment}
+              />
+            ) : null}
             <div className="mt-4 rounded-md border border-amber/20 bg-white/70 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -686,7 +738,7 @@ export function SettingsDashboard() {
                 onClick={editCurrentPlan}
                 type="button"
               >
-                修改当前计划
+                修改当前阶段计划
               </button>
             ) : null}
             <div className="rounded-md border border-amber/20 bg-mist/40 p-3">
@@ -725,7 +777,7 @@ export function SettingsDashboard() {
               onClick={() => choosePlanSetupMode("import")}
               type="button"
             >
-              导入已进行计划
+              导入已进行阶段
             </button>
           </div>
         )}
@@ -736,10 +788,10 @@ export function SettingsDashboard() {
               <p className="font-semibold text-ink">{planEditorTitle}</p>
               <p className="mt-1">
                 {editingExistingPlan
-                  ? "这里会修改当前计划本身，并重新生成当前计划的日程，不会创建新的计划记录。"
+                  ? "这里会修改当前阶段计划本身，并重新生成本阶段日程，不会创建新的阶段记录。"
                   : isNewPlanMode
-                    ? "新计划适合还没开始或准备从第 1 副开始追踪的情况。填写医生给你的总副数、每副佩戴天数和计划开始日，系统会生成后续日程。"
-                    : "导入已进行计划适合已经佩戴了一段时间的情况。填写当前第几副和当前副开始日期；如果只记得下次换牙套日期，系统会反推当前副开始日。这不是每周都要重填。"}
+                    ? "新计划适合还没开始或准备从第 1 副开始追踪的情况。填写医生给你的当前阶段总副数、每副佩戴天数和计划开始日，系统会生成本阶段后续日程。"
+                    : "导入已进行阶段适合已经佩戴了一段时间的情况。填写当前第几副和当前副开始日期；如果只记得下次换牙套日期，系统会反推当前副开始日。这不是每周都要重填。"}
               </p>
               {hasRealPlan && !editingExistingPlan ? (
                 <p className="mt-2 font-semibold text-amber">这是重置操作，会替换当前 active 计划。请先生成预览并确认无误。</p>
@@ -820,10 +872,10 @@ export function SettingsDashboard() {
                 value={`${importDraft.totalTrays} 副`}
               />
               <ImportNumberPickerField
-                helper="如果医生给了整体副数就填；不知道可先等于当前阶段。"
-                label="全程预估总副数"
+                helper="跨多个阶段的粗略预估；不知道可先等于当前阶段，之后精修/保持器阶段再补。"
+                label="整体疗程预估副数"
                 onOpen={() => setNumberPicker({
-                  title: "全程预估总副数",
+                  title: "整体疗程预估副数",
                   helper: "不能小于当前第几副。",
                   value: importDraft.overallTotalTrays ?? importDraft.totalTrays,
                   options: rangeOptions(Math.max(1, importDraft.currentTrayNumber), 120),
@@ -833,10 +885,10 @@ export function SettingsDashboard() {
                 value={`${importDraft.overallTotalTrays ?? importDraft.totalTrays} 副`}
               />
               <ImportNumberPickerField
-                helper="可选。比如 20 副 x 7 天 = 140 天。"
-                label="治疗总周期天数"
+                helper="可选。用于粗略记录多个阶段合计时长，不影响当前阶段换期日程。"
+                label="整体疗程预估天数"
                 onOpen={() => setNumberPicker({
-                  title: "治疗总周期天数",
+                  title: "整体疗程预估天数",
                   value: importDraft.overallTreatmentDays ?? importDraft.totalTrays * importDraft.trayIntervalDays,
                   options: rangeOptions(7, 900, 7),
                   formatValue: (value) => `${value} 天`,
@@ -926,7 +978,7 @@ export function SettingsDashboard() {
                 {importPending
                   ? "处理中..."
                   : hasRealPlan && editingExistingPlan
-                    ? "确认修改当前计划"
+                    ? "确认修改当前阶段"
                     : hasRealPlan
                       ? resetConfirmArmed ? "确认重置计划" : "需先选择重置"
                       : "确认保存计划"}
@@ -1212,15 +1264,23 @@ function ImportPreviewCard({ preview }: { preview: TreatmentPlanImportPreview })
     <div className="mt-4 rounded-md border border-amber/20 bg-mist/50 p-3">
       <h3 className="font-semibold text-ink">计划预览</h3>
       <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-        <PreviewMetric label="当前牙套" value={`第 ${preview.progress.currentTrayNumber} / ${preview.progress.totalTrays ?? "?"} 副`} />
-        <PreviewMetric label="全程副数" value={preview.progress.overallTotalTrays ? `${preview.progress.overallTotalTrays} 副` : "未知"} />
-        <PreviewMetric label="总周期" value={preview.progress.overallTreatmentDays ? `${preview.progress.overallTreatmentDays} 天` : "未知"} />
+        <PreviewMetric label="本阶段牙套" value={`第 ${preview.progress.currentTrayNumber} / ${preview.progress.totalTrays ?? "?"} 副`} />
+        <PreviewMetric label="本阶段总副数" value={preview.progress.totalTrays ? `${preview.progress.totalTrays} 副` : "未知"} />
+        <PreviewMetric label="整体疗程预估" value={preview.progress.overallTreatmentDays ? `${preview.progress.overallTreatmentDays} 天` : "未知"} />
         <PreviewMetric label="每副周期" value={`${preview.progress.trayIntervalDays} 天`} />
         <PreviewMetric label="下次换期" value={preview.progress.nextChangeDate ?? "暂停/待医生确认"} />
         <PreviewMetric label="预计结束" value={preview.progress.estimatedSeriesEndDate ?? "未知"} />
         <PreviewMetric label="剩余副数" value={preview.progress.traysRemaining === null ? "未知" : `${preview.progress.traysRemaining} 副`} />
         <PreviewMetric label="每日目标" value={formatMinutes(preview.series.dailyGoalMinutes)} />
       </div>
+
+      {preview.appointmentExtensionSuggestion ? (
+        <AppointmentExtensionCard
+          actionLabel="保存后可确认延戴"
+          disabled
+          suggestion={preview.appointmentExtensionSuggestion}
+        />
+      ) : null}
 
       <div className="mt-3 space-y-2">
         {firstTrays.map((tray) => (
@@ -1232,6 +1292,37 @@ function ImportPreviewCard({ preview }: { preview: TreatmentPlanImportPreview })
       </div>
 
       <p className="mt-3 text-xs leading-5 text-ink/60">{preview.safetyNote}</p>
+    </div>
+  );
+}
+
+function AppointmentExtensionCard(props: {
+  actionLabel: string;
+  disabled?: boolean;
+  pending?: boolean;
+  suggestion: AppointmentExtensionSuggestion;
+  onConfirm?: () => void;
+}) {
+  return (
+    <div className="mt-4 rounded-md border border-amber/20 bg-white/80 p-3">
+      <p className="text-xs font-semibold tracking-[0.16em] text-amber">复诊衔接</p>
+      <h3 className="mt-1 font-semibold text-ink">默认建议延戴到复诊日</h3>
+      <p className="mt-1 text-xs leading-5 text-ink/60">
+        第 {props.suggestion.trayNumber} 副原计划 {formatDateShort(props.suggestion.plannedEndDate)} 结束，复诊在 {formatDateShort(props.suggestion.appointmentDate)}。建议记录为延戴 {props.suggestion.extensionDays} 天，等医生确认后再导入下一阶段。
+      </p>
+      {props.onConfirm ? (
+        <button
+          className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+          disabled={props.disabled || props.pending}
+          onClick={props.onConfirm}
+          type="button"
+        >
+          {props.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {props.actionLabel}
+        </button>
+      ) : (
+        <p className="mt-2 text-xs text-ink/45">{props.actionLabel}</p>
+      )}
     </div>
   );
 }
@@ -1325,6 +1416,16 @@ function normalizeImportDraft(draft: ImportState): TreatmentPlanImportInput {
     appointmentDate: draft.appointmentDate || undefined,
     clinicianNotes: draft.clinicianNotes?.trim() || undefined
   };
+}
+
+function formatDateShort(dateKey: string | null) {
+  if (!dateKey) {
+    return "待确认";
+  }
+
+  const [, month, day] = dateKey.split("-").map(Number);
+
+  return `${month}月${day}日`;
 }
 
 function rangeOptions(min: number, max: number, step = 1) {

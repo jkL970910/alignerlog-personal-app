@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, MessageCircle, Plus, X } from "lucide-react";
+import { History, Loader2, MessageCircle, Plus, X } from "lucide-react";
 
 import { timeZoneHeaders } from "@/lib/client-time-zone";
 import type { LooDentalMinisterChatMessage, LooDentalMinisterChatSession } from "@/lib/types";
@@ -25,6 +25,8 @@ const quickQuestions = [
   "今天佩戴情况怎么样？",
   "如果牙套不贴合，我应该记录什么？"
 ];
+
+const ministerRequestTimeoutMs = 25_000;
 
 export function LooDentalMinister() {
   const [open, setOpen] = useState(false);
@@ -119,10 +121,11 @@ export function LooDentalMinister() {
     setMessages((current) => [...current, { role: "user", text }]);
 
     try {
-      const response = await fetch("/api/minister/chat", {
+      const response = await fetchWithTimeout("/api/minister/chat", {
         method: "POST",
         headers: timeZoneHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ question: text, sessionId: activeSessionId })
+        body: JSON.stringify({ question: text, sessionId: activeSessionId }),
+        timeoutMs: ministerRequestTimeoutMs
       });
       const payload = await response.json() as MinisterResponse;
 
@@ -137,7 +140,7 @@ export function LooDentalMinister() {
     } catch (error) {
       setMessages((current) => [...current, {
         role: "minister",
-        text: error instanceof Error ? error.message : "Loo牙大臣暂时无法回答。"
+        text: ministerErrorMessage(error)
       }]);
     } finally {
       setPending(false);
@@ -168,13 +171,6 @@ export function LooDentalMinister() {
               </div>
               <div className="flex gap-2">
                 <button
-                  className="rounded-full border border-ink/10 px-3 py-2 text-xs font-semibold text-ink/60"
-                  onClick={() => setHistoryOpen((value) => !value)}
-                  type="button"
-                >
-                  历史
-                </button>
-                <button
                   className="rounded-full border border-ink/10 p-2 text-ink/60"
                   onClick={() => setOpen(false)}
                   type="button"
@@ -184,41 +180,19 @@ export function LooDentalMinister() {
               </div>
             </header>
 
+            <MinisterActionBar
+              historyOpen={historyOpen}
+              onStartNewChat={startNewChat}
+              onToggleHistory={() => setHistoryOpen((value) => !value)}
+            />
+
             {historyOpen ? (
-              <div className="border-b border-ink/10 bg-white/70 p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-ink">历史对话</p>
-                  <button
-                    className="flex items-center gap-1 rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"
-                    onClick={startNewChat}
-                    type="button"
-                  >
-                    <Plus className="h-3 w-3" />
-                    新对话
-                  </button>
-                </div>
-                {loadingHistory ? (
-                  <p className="rounded-md bg-mist/60 p-3 text-sm text-ink/60">读取中...</p>
-                ) : sessions.length ? (
-                  <div className="max-h-40 space-y-2 overflow-y-auto">
-                    {sessions.map((session) => (
-                      <button
-                        className={`w-full rounded-md border px-3 py-2 text-left text-sm ${
-                          session.id === activeSessionId ? "border-ink bg-mist text-ink" : "border-ink/10 bg-white text-ink/65"
-                        }`}
-                        key={session.id}
-                        onClick={() => loadSession(session.id)}
-                        type="button"
-                      >
-                        <span className="block truncate font-semibold">{session.title}</span>
-                        <span className="mt-0.5 block text-xs text-ink/45">{formatSessionTime(session.updatedAt)}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="rounded-md bg-mist/60 p-3 text-sm text-ink/60">还没有历史对话。</p>
-                )}
-              </div>
+              <ChatHistoryPanel
+                activeSessionId={activeSessionId}
+                loading={loadingHistory}
+                onSelectSession={loadSession}
+                sessions={sessions}
+              />
             ) : null}
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
@@ -287,6 +261,107 @@ export function LooDentalMinister() {
         </div>
       ) : null}
     </>
+  );
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit & { timeoutMs: number }) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), init.timeoutMs);
+  const { timeoutMs: _timeoutMs, ...requestInit } = init;
+
+  try {
+    return await fetch(input, {
+      ...requestInit,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Loo牙大臣响应超时。请稍后再试，或先换一个更短的问题。");
+    }
+
+    throw new Error("网络请求没有完成。请检查手机网络后重试；如果刚更新过应用，请刷新页面再试。");
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+function ministerErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return "Loo牙大臣暂时无法回答。";
+}
+
+function MinisterActionBar({
+  historyOpen,
+  onStartNewChat,
+  onToggleHistory
+}: {
+  historyOpen: boolean;
+  onStartNewChat: () => void;
+  onToggleHistory: () => void;
+}) {
+  return (
+    <div className="flex gap-2 border-b border-ink/10 bg-paper px-4 py-3">
+      <button
+        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white shadow-sm"
+        onClick={onStartNewChat}
+        type="button"
+      >
+        <Plus className="h-4 w-4" />
+        新对话
+      </button>
+      <button
+        className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold ${
+          historyOpen ? "border-ink bg-mist text-ink" : "border-ink/10 bg-white text-ink/65"
+        }`}
+        onClick={onToggleHistory}
+        type="button"
+      >
+        <History className="h-4 w-4" />
+        历史
+      </button>
+    </div>
+  );
+}
+
+function ChatHistoryPanel({
+  activeSessionId,
+  loading,
+  onSelectSession,
+  sessions
+}: {
+  activeSessionId: string | null;
+  loading: boolean;
+  onSelectSession: (sessionId: string) => void;
+  sessions: LooDentalMinisterChatSession[];
+}) {
+  return (
+    <div className="border-b border-ink/10 bg-white/70 p-3">
+      <p className="mb-2 text-sm font-semibold text-ink">历史对话</p>
+      {loading ? (
+        <p className="rounded-md bg-mist/60 p-3 text-sm text-ink/60">读取中...</p>
+      ) : sessions.length ? (
+        <div className="max-h-40 space-y-2 overflow-y-auto">
+          {sessions.map((session) => (
+            <button
+              className={`w-full rounded-md border px-3 py-2 text-left text-sm ${
+                session.id === activeSessionId ? "border-ink bg-mist text-ink" : "border-ink/10 bg-white text-ink/65"
+              }`}
+              key={session.id}
+              onClick={() => onSelectSession(session.id)}
+              type="button"
+            >
+              <span className="block truncate font-semibold">{session.title}</span>
+              <span className="mt-0.5 block text-xs text-ink/45">{formatSessionTime(session.updatedAt)}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-md bg-mist/60 p-3 text-sm text-ink/60">还没有历史对话。</p>
+      )}
+    </div>
   );
 }
 

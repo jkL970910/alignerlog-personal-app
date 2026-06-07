@@ -7,7 +7,6 @@ import { formatMinutes, formatPercent } from "@/lib/format";
 import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
 import type { AppSnapshot } from "@/lib/types";
 
-import { MetricCard } from "./metric-card";
 import { SetupWarning } from "./setup-warning";
 
 type ApiState =
@@ -28,6 +27,7 @@ export function TodayDashboard() {
   const [manualMessage, setManualMessage] = useState<string | null>(null);
   const [advancePending, setAdvancePending] = useState(false);
   const [advanceMessage, setAdvanceMessage] = useState<string | null>(null);
+  const [appointmentExtendPending, setAppointmentExtendPending] = useState(false);
 
   async function load() {
     const response = await fetch("/api/snapshot", {
@@ -166,6 +166,7 @@ export function TodayDashboard() {
         status: "ready",
         data: {
           ...state.data,
+          activeSeries: payload.series,
           planProgress: payload.progress,
           activeException: null,
           recentExceptions: []
@@ -176,6 +177,51 @@ export function TodayDashboard() {
       setAdvanceMessage(error instanceof Error ? error.message : "无法确认换期。");
     } finally {
       setAdvancePending(false);
+    }
+  }
+
+  async function extendLastTrayToAppointment() {
+    if (state.status !== "ready" || !state.data.appointmentExtensionSuggestion) {
+      return;
+    }
+
+    const suggestion = state.data.appointmentExtensionSuggestion;
+    setAppointmentExtendPending(true);
+    setAdvanceMessage(null);
+
+    try {
+      const response = await fetch("/api/treatment-plan/exception", {
+        method: "POST",
+        headers: timeZoneHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          eventType: "tray_extension",
+          eventDate: getClientDateKey(),
+          extensionDays: suggestion.extensionDays,
+          note: `默认延戴到复诊日 ${suggestion.appointmentDate}。`
+        })
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "无法延戴到复诊日。");
+      }
+
+      setState({
+        status: "ready",
+        data: {
+          ...state.data,
+          activeSeries: payload.series,
+          planProgress: payload.progress,
+          appointmentExtensionSuggestion: null,
+          activeException: payload.event,
+          recentExceptions: [payload.event, ...(state.data.recentExceptions ?? [])].slice(0, 3)
+        }
+      });
+      setAdvanceMessage(`已将第 ${suggestion.trayNumber} 副延戴到 ${formatDateShort(suggestion.appointmentDate)}。`);
+    } catch (error) {
+      setAdvanceMessage(error instanceof Error ? error.message : "无法延戴到复诊日。");
+    } finally {
+      setAppointmentExtendPending(false);
     }
   }
 
@@ -191,32 +237,43 @@ export function TodayDashboard() {
     return <SetupWarning message={state.error} />;
   }
 
-  const { wearState, activeSession, todaySummary, treatmentPlan } = state.data;
+  const { wearState, activeSession, todaySummary, treatmentPlan, activeSeries } = state.data;
   const planProgress = state.data.planProgress;
+  const appointmentExtensionSuggestion = state.data.appointmentExtensionSuggestion ?? null;
   const activeException = state.data.activeException ?? null;
   const isTrayDue = Boolean(planProgress && planProgress.label === "on_track" && planProgress.daysUntilNextChange !== null && planProgress.daysUntilNextChange <= 0);
   const canAdvanceTray = Boolean(isTrayDue && planProgress?.totalTrays && planProgress.currentTrayNumber < planProgress.totalTrays);
   const isWearing = wearState.isWearing;
   const progress = todaySummary.hasData ? Math.min(100, (todaySummary.wearMinutes / treatmentPlan.dailyGoalMinutes) * 100) : 0;
   const activeOutMinutes = activeSession ? Math.max(0, Math.floor((Date.now() - new Date(activeSession.startAt).getTime()) / 60000)) : 0;
+  const currentTrayPercent = planProgress ? getCurrentTrayProgressPercent(planProgress) : 0;
+  const stagePercent = planProgress ? getStageProgressPercent(planProgress, currentTrayPercent) : 0;
 
   return (
     <div className="space-y-4">
       {planProgress ? (
         <section className="rounded-md border border-amber/20 bg-white/90 p-4 shadow-sm">
-          <p className="text-xs font-semibold tracking-[0.18em] text-sage">当前计划</p>
-          <div className="mt-2 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-semibold text-ink">
-                第 {planProgress.currentTrayNumber} / {planProgress.totalTrays ?? "?"} 副
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold tracking-[0.18em] text-sage">当前阶段计划</p>
+              <p className="mt-1 text-sm text-ink/55">
+                {formatSeriesType(activeSeries?.seriesType)} · 本阶段共 {planProgress.totalTrays ?? "?"} 副
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold text-ink">
+                正在佩戴第 {planProgress.currentTrayNumber} 副
               </h2>
-              <p className="mt-1 text-sm text-ink/60">{getProgressText(planProgress)}</p>
+              <div className="mt-3 inline-flex items-center gap-3 rounded-md bg-mist px-3 py-2">
+                <div>
+                  <p className="text-xs text-ink/50">下次换期</p>
+                  <p className="mt-0.5 font-semibold leading-tight text-ink">{formatDateShort(planProgress.nextChangeDate)}</p>
+                </div>
+                {planProgress.nextChangeDate ? <p className="text-xs text-ink/45">{formatWeekday(planProgress.nextChangeDate)}</p> : null}
+              </div>
             </div>
-            <div className="min-w-[5.75rem] rounded-md bg-mist px-3 py-2 text-center">
-              <p className="text-xs text-ink/50">下次换期</p>
-              <p className="mt-1 font-semibold leading-tight text-ink">{formatDateShort(planProgress.nextChangeDate)}</p>
-              {planProgress.nextChangeDate ? <p className="mt-0.5 text-xs text-ink/45">{formatWeekday(planProgress.nextChangeDate)}</p> : null}
-            </div>
+            <DualProgressRings
+              stagePercent={stagePercent}
+              trayPercent={currentTrayPercent}
+            />
           </div>
         </section>
       ) : null}
@@ -238,6 +295,25 @@ export function TodayDashboard() {
             type="button"
           >
             去设置页处理异常
+          </button>
+        </section>
+      ) : null}
+
+      {appointmentExtensionSuggestion && !activeException ? (
+        <section className="rounded-md border border-amber/25 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-[0.18em] text-amber">复诊衔接</p>
+          <h2 className="mt-2 text-xl font-semibold text-ink">建议延戴到复诊日</h2>
+          <p className="mt-1 text-sm leading-6 text-ink/60">
+            第 {appointmentExtensionSuggestion.trayNumber} 副原计划 {formatDateShort(appointmentExtensionSuggestion.plannedEndDate)} 结束，复诊在 {formatDateShort(appointmentExtensionSuggestion.appointmentDate)}。默认建议记录为延戴 {appointmentExtensionSuggestion.extensionDays} 天，等医生确认后再导入下一阶段。
+          </p>
+          <button
+            className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-60"
+            disabled={appointmentExtendPending}
+            onClick={extendLastTrayToAppointment}
+            type="button"
+          >
+            {appointmentExtendPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            延戴到复诊日
           </button>
         </section>
       ) : null}
@@ -296,6 +372,27 @@ export function TodayDashboard() {
           <div className="h-3 overflow-hidden rounded-full bg-mist">
             <div className="h-full rounded-full bg-mint transition-all" style={{ width: `${progress}%` }} />
           </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <TodayInlineStat
+            helper={`目标 ${formatMinutes(treatmentPlan.dailyGoalMinutes)}`}
+            label="今日已戴"
+            value={todaySummary.hasData ? formatMinutes(todaySummary.wearMinutes) : "暂无记录"}
+          />
+          <TodayInlineStat
+            label={isWearing ? "还差" : "当前已取下"}
+            value={todaySummary.hasData ? isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes) : "首次打卡后计算"}
+          />
+          <TodayInlineStat
+            helper="今日记录"
+            label="取下次数"
+            value={String(todaySummary.sessionCount)}
+          />
+          <TodayInlineStat
+            label="总取下"
+            value={formatMinutes(todaySummary.offMinutes)}
+          />
         </div>
 
         <button
@@ -412,13 +509,6 @@ export function TodayDashboard() {
         {manualMessage ? <p className={`mt-3 text-xs ${manualMessage.startsWith("已") ? "text-sage" : "text-coral"}`}>{manualMessage}</p> : null}
       </section>
 
-      <div className="grid grid-cols-2 gap-3">
-        <MetricCard label="今日已戴" value={todaySummary.hasData ? formatMinutes(todaySummary.wearMinutes) : "暂无记录"} helper={`目标 ${formatMinutes(treatmentPlan.dailyGoalMinutes)}`} />
-        <MetricCard label={isWearing ? "还差" : "当前已取下"} value={todaySummary.hasData ? isWearing ? formatMinutes(Math.max(0, treatmentPlan.dailyGoalMinutes - todaySummary.wearMinutes)) : formatMinutes(activeOutMinutes) : "首次打卡后计算"} />
-        <MetricCard label="取下次数" value={String(todaySummary.sessionCount)} helper="今日记录" />
-        <MetricCard label="总取下" value={formatMinutes(todaySummary.offMinutes)} />
-      </div>
-
       <button
         className="flex min-h-11 w-full items-center justify-center rounded-md border border-ink/10 bg-white px-4 text-sm font-semibold text-ink shadow-sm"
         onClick={() => { window.location.href = "/calendar"; }}
@@ -436,6 +526,16 @@ export function TodayDashboard() {
       <p className="rounded-md border border-ink/10 bg-mist/70 p-3 text-xs leading-5 text-ink/60">
         Loo牙管理器用于记录和理解佩戴计划，不提供诊断或换牙套决策；请以牙医/正畸医生指导为准。
       </p>
+    </div>
+  );
+}
+
+function TodayInlineStat(props: { label: string; value: string; helper?: string }) {
+  return (
+    <div className="rounded-md bg-mist/70 px-3 py-2">
+      <p className="text-xs text-ink/45">{props.label}</p>
+      <p className="mt-1 text-base font-semibold leading-tight text-ink">{props.value}</p>
+      {props.helper ? <p className="mt-0.5 text-[0.65rem] leading-4 text-ink/45">{props.helper}</p> : null}
     </div>
   );
 }
@@ -510,34 +610,6 @@ function getManualSuccessText(mode: ManualMode) {
   return "已按实际戴回时间关闭取下记录。";
 }
 
-function getProgressText(progress: NonNullable<AppSnapshot["planProgress"]>) {
-  if (progress.label === "holding") {
-    return "当前处于保持/被动佩戴，请按医生安排等待下一步。";
-  }
-
-  if (progress.label === "paused") {
-    return "当前计划暂停或等待精修，换期时间以医生确认 为准。";
-  }
-
-  if (progress.label === "retainer") {
-    return "当前为保持器阶段，佩戴方式以医生指导为准。";
-  }
-
-  if (progress.label === "not_started") {
-    return "计划尚未开始，可先保留日程预览。";
-  }
-
-  const dayText = progress.currentTrayDay ? `当前第 ${progress.currentTrayDay} 天` : "当前天数待确认";
-  const nextText = progress.daysUntilNextChange === null
-    ? "下次换期待确认"
-    : progress.daysUntilNextChange <= 0
-      ? "已到计划换期日，请在首页确认是否已经换到下一副"
-      : `距离计划换期 ${progress.daysUntilNextChange} 天`;
-  const remainingText = progress.traysRemaining === null ? "" : `，剩余 ${progress.traysRemaining} 副`;
-
-  return `${dayText}，${nextText}${remainingText}。`;
-}
-
 function formatExceptionType(type: NonNullable<AppSnapshot["activeException"]>["eventType"]) {
   const labels: Record<NonNullable<AppSnapshot["activeException"]>["eventType"], string> = {
     late_change: "延迟换期",
@@ -553,6 +625,73 @@ function formatExceptionType(type: NonNullable<AppSnapshot["activeException"]>["
   };
 
   return labels[type];
+}
+
+function DualProgressRings(props: { stagePercent: number; trayPercent: number }) {
+  const stagePercent = clampPercent(props.stagePercent);
+  const trayPercent = clampPercent(props.trayPercent);
+
+  return (
+    <div className="shrink-0 text-center">
+      <p className="mb-1 text-[0.65rem] font-medium text-ink/50">阶段完成进度</p>
+      <div className="relative h-24 w-24">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 rounded-full"
+          style={{ background: progressRingBackground(stagePercent, "#6f8f7c", "#e8efeb") }}
+        />
+        <div className="absolute inset-2 rounded-full bg-white" />
+        <div
+          aria-hidden="true"
+          className="absolute inset-4 rounded-full"
+          style={{ background: progressRingBackground(trayPercent, "#c7655d", "#f1e7df") }}
+        />
+        <div className="absolute inset-6 flex flex-col items-center justify-center rounded-full bg-white">
+          <p className="text-sm font-semibold leading-none text-ink">{formatPercent(stagePercent)}</p>
+          <p className="mt-1 text-[0.6rem] leading-none text-ink/45">阶段</p>
+        </div>
+      </div>
+      <p className="mt-1 text-[0.65rem] leading-4 text-ink/50">当前副 {formatPercent(trayPercent)}</p>
+    </div>
+  );
+}
+
+function getCurrentTrayProgressPercent(progress: NonNullable<AppSnapshot["planProgress"]>) {
+  if (!progress.currentTrayDay || progress.trayIntervalDays <= 0 || progress.label !== "on_track") {
+    return 0;
+  }
+
+  return clampPercent((progress.currentTrayDay / progress.trayIntervalDays) * 100);
+}
+
+function getStageProgressPercent(progress: NonNullable<AppSnapshot["planProgress"]>, currentTrayPercent: number) {
+  if (!progress.totalTrays || progress.totalTrays <= 0) {
+    return 0;
+  }
+
+  const completedTrays = Math.max(0, progress.currentTrayNumber - 1);
+  const currentTrayFraction = progress.label === "on_track" ? clampPercent(currentTrayPercent) / 100 : 0;
+
+  return clampPercent(((completedTrays + currentTrayFraction) / progress.totalTrays) * 100);
+}
+
+function progressRingBackground(percent: number, activeColor: string, inactiveColor: string) {
+  return `conic-gradient(${activeColor} ${clampPercent(percent)}%, ${inactiveColor} 0)`;
+}
+
+function clampPercent(value: number) {
+  return Math.min(100, Math.max(0, value));
+}
+
+function formatSeriesType(seriesType: NonNullable<AppSnapshot["activeSeries"]>["seriesType"] | undefined) {
+  const labels: Record<NonNullable<AppSnapshot["activeSeries"]>["seriesType"], string> = {
+    active: "主动移动",
+    refinement: "精修",
+    holding: "保持/等待",
+    retainer: "保持器"
+  };
+
+  return seriesType ? labels[seriesType] : "阶段";
 }
 
 function getExceptionText(type: NonNullable<AppSnapshot["activeException"]>["eventType"]) {

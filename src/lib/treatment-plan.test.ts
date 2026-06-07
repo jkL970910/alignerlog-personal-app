@@ -81,4 +81,43 @@ describe("buildTreatmentPlanImportPreview", () => {
     expect(preview.progress.nextChangeDate).toBeNull();
     expect(preview.trays.at(-1)?.status).toBe("paused");
   });
+
+  it("suggests extending the final tray to a later appointment date", () => {
+    const preview = buildTreatmentPlanImportPreview({
+      status: "active",
+      seriesType: "active",
+      name: "第一阶段",
+      currentTrayNumber: 5,
+      totalTrays: 5,
+      trayIntervalDays: 7,
+      dailyGoalMinutes: 1320,
+      currentTrayStartDate: "2026-06-01",
+      appointmentDate: "2026-06-12"
+    }, new Date("2026-06-04T12:00:00Z"));
+
+    expect(preview.trays.at(-1)?.plannedEndDate).toBe("2026-06-07");
+    expect(preview.appointmentExtensionSuggestion).toEqual({
+      kind: "extend_last_tray_to_appointment",
+      trayNumber: 5,
+      plannedEndDate: "2026-06-07",
+      appointmentDate: "2026-06-12",
+      extensionDays: 5
+    });
+  });
+
+  it("does not suggest appointment extension before the final tray", () => {
+    const preview = buildTreatmentPlanImportPreview({
+      status: "active",
+      seriesType: "active",
+      name: "第一阶段",
+      currentTrayNumber: 4,
+      totalTrays: 5,
+      trayIntervalDays: 7,
+      dailyGoalMinutes: 1320,
+      currentTrayStartDate: "2026-06-01",
+      appointmentDate: "2026-06-30"
+    }, new Date("2026-06-04T12:00:00Z"));
+
+    expect(preview.appointmentExtensionSuggestion).toBeNull();
+  });
 });

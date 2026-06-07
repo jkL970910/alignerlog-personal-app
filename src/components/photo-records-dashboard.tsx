@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Camera, Loader2, Trash2 } from "lucide-react";
+import { Camera, Loader2, Pencil, Trash2 } from "lucide-react";
 
 import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
 import type { DentalPhotoRecord, DentalPhotoViewType, PlanProgress, TreatmentSeries } from "@/lib/types";
@@ -54,6 +54,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [editingPhoto, setEditingPhoto] = useState<DentalPhotoRecord | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<DentalPhotoRecord | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -166,6 +167,39 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
       setMessage("已删除照片记录。");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "无法删除照片记录。");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function updatePhoto(photoId: string, nextDraft: UploadDraft) {
+    setPending(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/photos/${photoId}`, {
+        method: "PATCH",
+        headers: timeZoneHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          date: nextDraft.date,
+          stageName: nextDraft.stageName,
+          trayNumber: nextDraft.trayNumber ? Number(nextDraft.trayNumber) : null,
+          viewType: nextDraft.viewType,
+          note: nextDraft.note
+        })
+      });
+      const payload = await response.json() as { photo?: DentalPhotoRecord; error?: string };
+
+      if (!response.ok || !payload.photo) {
+        throw new Error(payload.error ?? "无法保存照片信息。");
+      }
+
+      setPhotos((current) => current.map((photo) => photo.id === photoId ? payload.photo! : photo));
+      setPreviewPhoto((current) => current?.id === photoId ? payload.photo! : current);
+      setEditingPhoto(null);
+      setMessage("已更新照片信息。");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "无法保存照片信息。");
     } finally {
       setPending(false);
     }
@@ -290,6 +324,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
             onDelete={() => {
               deletePhoto(previewPhoto.id).then(() => setPreviewPhoto(null)).catch(() => undefined);
             }}
+            onEdit={() => setEditingPhoto(previewPhoto)}
             pending={pending}
             photo={previewPhoto}
           />
@@ -333,6 +368,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
           <PhotoCard
             key={photo.id}
             onDelete={() => deletePhoto(photo.id)}
+            onEdit={() => setEditingPhoto(photo)}
             onToggleCompare={() => toggleCompare(photo.id, selectedIds, setSelectedIds)}
             photo={photo}
             selected={selectedIds.includes(photo.id)}
@@ -343,6 +379,17 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
           </div>
         )}
       </section>
+      ) : null}
+
+      {editingPhoto ? (
+        <PhotoEditModal
+          dateLocked={Boolean(props.embeddedDate)}
+          message={message}
+          onClose={() => setEditingPhoto(null)}
+          onSubmit={(nextDraft) => updatePhoto(editingPhoto.id, nextDraft)}
+          pending={pending}
+          photo={editingPhoto}
+        />
       ) : null}
     </div>
   );
@@ -466,6 +513,7 @@ function PhotoCard(props: {
   selected: boolean;
   onToggleCompare: () => void;
   onDelete: () => void;
+  onEdit: () => void;
   showCompareAction?: boolean;
 }) {
   return (
@@ -477,13 +525,22 @@ function PhotoCard(props: {
             <p className="font-semibold text-ink">{photoTitle(props.photo)}</p>
             <p className="text-sm text-ink/60">{viewLabel(props.photo.viewType)} · {formatSize(props.photo.imageSizeBytes)}</p>
           </div>
-          <button
-            className="rounded-full border border-ink/10 p-2 text-ink/50"
-            onClick={props.onDelete}
-            type="button"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <div className="flex shrink-0 gap-2">
+            <button
+              className="rounded-full border border-ink/10 p-2 text-ink/50"
+              onClick={props.onEdit}
+              type="button"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              className="rounded-full border border-ink/10 p-2 text-ink/50"
+              onClick={props.onDelete}
+              type="button"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
         {props.photo.note ? <p className="rounded-md bg-mist/60 p-3 text-sm leading-6 text-ink/70">{props.photo.note}</p> : null}
         {props.showCompareAction === false ? null : (
@@ -526,6 +583,7 @@ function PhotoPreviewModal(props: {
   pending: boolean;
   onClose: () => void;
   onDelete: () => void;
+  onEdit: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end bg-ink/35 p-3 backdrop-blur-sm">
@@ -539,13 +597,22 @@ function PhotoPreviewModal(props: {
                 {viewLabel(props.photo.viewType)} · {formatSize(props.photo.imageSizeBytes)}
               </p>
             </div>
-            <button
-              className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
-              onClick={props.onClose}
-              type="button"
-            >
-              关闭
-            </button>
+            <div className="flex shrink-0 gap-2">
+              <button
+                className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
+                onClick={props.onEdit}
+                type="button"
+              >
+                编辑
+              </button>
+              <button
+                className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
+                onClick={props.onClose}
+                type="button"
+              >
+                关闭
+              </button>
+            </div>
           </div>
           {props.photo.note ? <p className="rounded-md bg-mist/60 p-3 text-sm leading-6 text-ink/70">{props.photo.note}</p> : null}
           <button
@@ -563,6 +630,50 @@ function PhotoPreviewModal(props: {
   );
 }
 
+function PhotoEditModal(props: {
+  photo: DentalPhotoRecord;
+  pending: boolean;
+  message: string | null;
+  dateLocked: boolean;
+  onClose: () => void;
+  onSubmit: (draft: UploadDraft) => void;
+}) {
+  const [draft, setDraft] = useState<UploadDraft>(() => photoToDraft(props.photo));
+
+  useEffect(() => {
+    setDraft(photoToDraft(props.photo));
+  }, [props.photo]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-ink/35 p-3 backdrop-blur-sm">
+      <div className="max-h-[88vh] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-ink">编辑照片信息</h3>
+            <p className="mt-1 text-xs leading-5 text-ink/55">可修改日期、阶段、副数、角度和备注；原照片不会被替换。</p>
+          </div>
+          <button
+            className="rounded-full border border-ink/10 px-3 py-1 text-xs font-semibold text-ink"
+            onClick={props.onClose}
+            type="button"
+          >
+            关闭
+          </button>
+        </div>
+        <PhotoMetadataForm
+          dateLocked={props.dateLocked}
+          draft={draft}
+          message={props.message}
+          onDraftChange={setDraft}
+          onSubmit={() => props.onSubmit(draft)}
+          pending={props.pending}
+          submitLabel="保存修改"
+        />
+      </div>
+    </div>
+  );
+}
+
 function PhotoCompareCard({ photo }: { photo: DentalPhotoRecord }) {
   return (
     <div className="overflow-hidden rounded-md border border-ink/10 bg-mist/40">
@@ -573,6 +684,115 @@ function PhotoCompareCard({ photo }: { photo: DentalPhotoRecord }) {
       </div>
     </div>
   );
+}
+
+function PhotoMetadataForm(props: {
+  draft: UploadDraft;
+  message: string | null;
+  pending: boolean;
+  dateLocked: boolean;
+  submitLabel: string;
+  onDraftChange: (draft: UploadDraft) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <PhotoMetadataFields
+        dateLocked={props.dateLocked}
+        draft={props.draft}
+        onDraftChange={props.onDraftChange}
+      />
+      <button
+        className="w-full rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={props.pending}
+        onClick={props.onSubmit}
+        type="button"
+      >
+        {props.pending ? "保存中..." : props.submitLabel}
+      </button>
+      {props.message ? <p className="text-sm text-ink/60">{props.message}</p> : null}
+    </div>
+  );
+}
+
+function PhotoMetadataFields(props: {
+  draft: UploadDraft;
+  dateLocked: boolean;
+  onDraftChange: (draft: UploadDraft) => void;
+}) {
+  return (
+    <>
+      <label className="block text-sm font-medium text-ink">
+        拍摄日期
+        <input
+          className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+          disabled={props.dateLocked}
+          onChange={(event) => props.onDraftChange({ ...props.draft, date: event.target.value })}
+          type="date"
+          value={props.draft.date}
+        />
+      </label>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block text-sm font-medium text-ink">
+          阶段
+          <input
+            className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+            maxLength={80}
+            onChange={(event) => props.onDraftChange({ ...props.draft, stageName: event.target.value })}
+            placeholder="如：第一阶段"
+            value={props.draft.stageName}
+          />
+        </label>
+        <label className="block text-sm font-medium text-ink">
+          当前副数
+          <input
+            className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+            inputMode="numeric"
+            min={1}
+            onChange={(event) => props.onDraftChange({ ...props.draft, trayNumber: event.target.value })}
+            placeholder="如：12"
+            type="number"
+            value={props.draft.trayNumber}
+          />
+        </label>
+      </div>
+
+      <label className="block text-sm font-medium text-ink">
+        拍摄角度
+        <select
+          className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+          onChange={(event) => props.onDraftChange({ ...props.draft, viewType: event.target.value as DentalPhotoViewType })}
+          value={props.draft.viewType}
+        >
+          {viewOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block text-sm font-medium text-ink">
+        备注
+        <textarea
+          className="mt-1 min-h-20 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+          maxLength={1000}
+          onChange={(event) => props.onDraftChange({ ...props.draft, note: event.target.value })}
+          placeholder="如：第12副第3天，感觉右侧咬合更贴合。"
+          value={props.draft.note}
+        />
+      </label>
+    </>
+  );
+}
+
+function photoToDraft(photo: DentalPhotoRecord): UploadDraft {
+  return {
+    date: photo.date,
+    stageName: photo.stageName,
+    trayNumber: photo.trayNumber ? String(photo.trayNumber) : "",
+    viewType: photo.viewType,
+    note: photo.note
+  };
 }
 
 function toggleCompare(photoId: string, selectedIds: string[], setSelectedIds: (ids: string[]) => void) {

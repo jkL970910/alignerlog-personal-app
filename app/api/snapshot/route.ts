@@ -1,6 +1,6 @@
 import { addDaysToDateKey, todayKey } from "@/lib/dates";
 import { calculateDailySummary } from "@/lib/summaries";
-import { calculatePlanProgress } from "@/lib/treatment-plan";
+import { calculatePlanProgress, getAppointmentExtensionSuggestion } from "@/lib/treatment-plan";
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
 import {
@@ -70,6 +70,12 @@ export async function GET(request: Request) {
       trays: plannedTrays,
       todayKey: date
     }) : null;
+    const appointmentExtensionSuggestion = activeSeries ? getAppointmentExtensionSuggestion({
+      currentTrayNumber: activeSeries.currentTrayNumber,
+      totalTrays: activeSeries.totalTrays,
+      appointmentDate: activeSeries.appointmentDate,
+      trays: plannedTrays
+    }) : null;
     const activeExceptions = activeSeries ? await listActiveTreatmentExceptionEvents(userId, activeSeries.id, 3) : [];
 
     return apiJson({
@@ -78,7 +84,9 @@ export async function GET(request: Request) {
       reminderSettings,
       activeSession,
       todaySummary,
+      activeSeries,
       planProgress,
+      appointmentExtensionSuggestion,
       activeException: activeExceptions[0] ?? null,
       recentExceptions: activeExceptions
     });

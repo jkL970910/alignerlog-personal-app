@@ -4,26 +4,19 @@ import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Loader2 } from "lucide-react";
 
+import { addDaysToDateKey } from "@/lib/dates";
 import { formatMinutes, formatPercent } from "@/lib/format";
-import { timeZoneHeaders } from "@/lib/client-time-zone";
+import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
 import type { DailySummary, OffTrayReason, OffTraySession } from "@/lib/types";
+import type { HistoryMetrics } from "@/lib/summaries";
 
 import { MetricCard } from "./metric-card";
 import { PhotoRecordsDashboard } from "./photo-records-dashboard";
 import { SetupWarning } from "./setup-warning";
 
-type Metrics = {
-  sevenDayAverage: number;
-  thirtyDayAverage: number;
-  goalAchievementRate: number;
-  longestGoalStreak: number;
-  averageOffTrayDuration: number;
-  longestOffTraySession: number;
-};
-
 type HistoryPayload = {
   summaries: DailySummary[];
-  metrics: Metrics;
+  metrics: HistoryMetrics;
   today: string;
 };
 
@@ -34,6 +27,8 @@ type SessionDraft = {
   reason: OffTrayReason;
 };
 
+type RangePreset = "7d" | "15d" | "30d" | "month";
+
 const reasonOptions: Array<{ value: OffTrayReason; label: string }> = [
   { value: "meal", label: "进食" },
   { value: "drink", label: "饮品" },
@@ -41,9 +36,20 @@ const reasonOptions: Array<{ value: OffTrayReason; label: string }> = [
   { value: "other", label: "其他" }
 ];
 
+const rangeOptions: Array<{ value: RangePreset; label: string }> = [
+  { value: "7d", label: "近7天" },
+  { value: "15d", label: "近15天" },
+  { value: "30d", label: "近30天" },
+  { value: "month", label: "按月" }
+];
+
 export function HistoryDashboard() {
   const [data, setData] = useState<HistoryPayload | null>(null);
+  const [dataRangeLabel, setDataRangeLabel] = useState("近30天");
   const [error, setError] = useState<string | null>(null);
+  const [historyPending, setHistoryPending] = useState(true);
+  const [rangePreset, setRangePreset] = useState<RangePreset>("30d");
+  const [monthKey, setMonthKey] = useState(() => getClientDateKey().slice(0, 7));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [sessions, setSessions] = useState<OffTraySession[]>([]);
   const [sessionDraft, setSessionDraft] = useState<SessionDraft>(() => createEmptyDraft());
@@ -51,19 +57,46 @@ export function HistoryDashboard() {
   const [sessionMessage, setSessionMessage] = useState<string | null>(null);
 
   async function loadHistory() {
-    const response = await fetch("/api/summaries", { headers: timeZoneHeaders() });
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error ?? "无法载入历史趋势。");
-    }
+    const payload = await fetchHistory(rangePreset, monthKey);
 
     setData(payload);
+    setDataRangeLabel(formatRangeLabel(rangePreset, monthKey));
   }
 
   useEffect(() => {
-    loadHistory().catch((err: Error) => setError(err.message));
-  }, []);
+    let cancelled = false;
+    const nextRangeLabel = formatRangeLabel(rangePreset, monthKey);
+
+    setHistoryPending(true);
+    setError(null);
+    setSelectedDate(null);
+    setSessions([]);
+    setSessionMessage(null);
+    setSessionDraft(createEmptyDraft());
+    fetchHistory(rangePreset, monthKey)
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+
+        setData(payload);
+        setDataRangeLabel(nextRangeLabel);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setError(err.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setHistoryPending(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rangePreset, monthKey]);
 
   async function openDay(date: string) {
     if (selectedDate === date) {
@@ -158,7 +191,7 @@ export function HistoryDashboard() {
     }
   }
 
-  if (error) {
+  if (error && !data) {
     return <SetupWarning message={error} />;
   }
 
@@ -171,23 +204,66 @@ export function HistoryDashboard() {
   }
 
   const recordedSummaries = data.summaries.filter((summary) => summary.hasData);
-  const chartData = recordedSummaries.slice(-14).map((summary) => ({
+  const chartData = recordedSummaries.map((summary) => ({
     date: summary.date.slice(5),
     hours: Number((summary.wearMinutes / 60).toFixed(1)),
     inProgress: summary.date === data.today
   }));
+  const activeRangeLabel = historyPending || error ? dataRangeLabel : formatRangeLabel(rangePreset, monthKey);
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <MetricCard label="7日均值" value={formatMinutes(data.metrics.sevenDayAverage)} />
-        <MetricCard label="30日均值" value={formatMinutes(data.metrics.thirtyDayAverage)} />
-        <MetricCard label="达标率" value={formatPercent(data.metrics.goalAchievementRate)} />
-        <MetricCard label="连续达标" value={`${data.metrics.longestGoalStreak}天`} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MetricCard
+          label="当前已连续坚持佩戴"
+          value={`${data.metrics.currentGoalStreak}天`}
+        />
+        <GoalStatsMetricCard
+          monthlyGoalStats={data.metrics.monthlyGoalStats}
+          overallGoalStats={data.metrics.overallGoalStats}
+        />
+        <MetricCard
+          label="7日均值"
+          value={formatMinutes(data.metrics.sevenDayAverage)}
+        />
+        <MetricCard
+          label="历史最长"
+          value={`${data.metrics.longestGoalStreak}天`}
+        />
       </div>
 
+      <section className="rounded-md border border-ink/10 bg-white p-3 shadow-sm">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {rangeOptions.map((option) => (
+            <button
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                rangePreset === option.value ? "bg-ink text-white" : "border border-ink/10 bg-white text-ink/60"
+              }`}
+              key={option.value}
+              onClick={() => setRangePreset(option.value)}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        {rangePreset === "month" ? (
+          <label className="mt-3 block text-xs font-medium text-ink/55">
+            月份
+            <input
+              className="mt-1 min-h-10 w-full rounded-md border border-ink/10 bg-paper px-3 text-sm text-ink"
+              max={getClientDateKey().slice(0, 7)}
+              onChange={(event) => setMonthKey(event.target.value || getClientDateKey().slice(0, 7))}
+              type="month"
+              value={monthKey}
+            />
+          </label>
+        ) : null}
+        {error ? <p className="mt-2 text-xs text-coral">{error}</p> : null}
+      </section>
+
       <section className="rounded-md border border-ink/10 bg-white p-4 shadow-sm">
-        <h2 className="mb-4 text-base font-semibold text-ink">最近14天</h2>
+        <h2 className="mb-4 text-base font-semibold text-ink">{activeRangeLabel}趋势</h2>
         {chartData.length ? (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -208,7 +284,8 @@ export function HistoryDashboard() {
       </section>
 
       <section className="space-y-2">
-        {recordedSummaries.slice(-10).reverse().map((summary) => (
+        <h2 className="text-base font-semibold text-ink">{activeRangeLabel}记录</h2>
+        {recordedSummaries.slice().reverse().map((summary) => (
           <div className="rounded-md border border-ink/10 bg-white/80 p-3" key={summary.date}>
             <button
               className="flex w-full items-center justify-between text-left"
@@ -253,12 +330,91 @@ export function HistoryDashboard() {
         ))}
         {!recordedSummaries.length ? (
           <div className="rounded-md border border-ink/10 bg-white/80 p-3 text-sm text-ink/60">
-            还没有可回看的佩戴记录。
+            这个范围还没有可回看的佩戴记录。
           </div>
         ) : null}
       </section>
     </div>
   );
+}
+
+function GoalStatsMetricCard(props: {
+  monthlyGoalStats: HistoryMetrics["monthlyGoalStats"];
+  overallGoalStats: HistoryMetrics["overallGoalStats"];
+}) {
+  return (
+    <div className="rounded-md border border-ink/10 bg-white/80 p-4 shadow-sm">
+      <p className="text-xs font-medium uppercase text-ink/50">达标统计</p>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-ink/45">本月</p>
+          <p className="mt-1 text-xl font-semibold text-ink">
+            {props.monthlyGoalStats.goalMetDays}/{props.monthlyGoalStats.trackedDays}天
+          </p>
+          <p className="mt-0.5 text-xs text-ink/55">{formatPercent(props.monthlyGoalStats.recordedGoalRate)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-ink/45">总体</p>
+          <p className="mt-1 text-xl font-semibold text-ink">
+            {props.overallGoalStats.goalMetDays}/{props.overallGoalStats.trackedDays}天
+          </p>
+          <p className="mt-0.5 text-xs text-ink/55">{formatPercent(props.overallGoalStats.goalRate)}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getHistoryRange(preset: RangePreset, month: string) {
+  const today = getClientDateKey();
+
+  if (preset === "month") {
+    const safeMonth = month || today.slice(0, 7);
+    const start = `${safeMonth}-01`;
+    const monthEnd = getMonthEndDateKey(safeMonth);
+    const end = safeMonth === today.slice(0, 7) ? today : monthEnd;
+
+    return { start, end };
+  }
+
+  const days = preset === "7d" ? 7 : preset === "15d" ? 15 : 30;
+
+  return {
+    start: addDaysToDateKey(today, -(days - 1)),
+    end: today
+  };
+}
+
+function getMonthEndDateKey(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0));
+
+  return [
+    String(lastDay.getUTCFullYear()).padStart(4, "0"),
+    String(lastDay.getUTCMonth() + 1).padStart(2, "0"),
+    String(lastDay.getUTCDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function formatRangeLabel(preset: RangePreset, month: string) {
+  if (preset === "month") {
+    return month === getClientDateKey().slice(0, 7) ? "本月" : `${month} 月度`;
+  }
+
+  return rangeOptions.find((option) => option.value === preset)?.label ?? "近30天";
+}
+
+async function fetchHistory(rangePreset: RangePreset, monthKey: string) {
+  const range = getHistoryRange(rangePreset, monthKey);
+  const params = new URLSearchParams({ start: range.start, end: range.end });
+  const response = await fetch(`/api/summaries?${params.toString()}`, { headers: timeZoneHeaders() });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? "无法载入历史趋势。");
+  }
+
+  return payload as HistoryPayload;
 }
 
 function DaySessionEditor(props: {

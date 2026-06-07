@@ -1,5 +1,5 @@
 import { apiError, apiJson } from "@/server/http";
-import { calculatePlanProgress } from "@/lib/treatment-plan";
+import { calculatePlanProgress, getAppointmentExtensionSuggestion } from "@/lib/treatment-plan";
 import { requireCurrentUserId } from "@/server/auth";
 import {
   getActiveTreatmentSeries,
@@ -32,6 +32,12 @@ export async function GET(request: Request) {
       trays: plannedTrays,
       timeZone
     }) : null;
+    const appointmentExtensionSuggestion = activeSeries ? getAppointmentExtensionSuggestion({
+      currentTrayNumber: activeSeries.currentTrayNumber,
+      totalTrays: activeSeries.totalTrays,
+      appointmentDate: activeSeries.appointmentDate,
+      trays: plannedTrays
+    }) : null;
 
     const exceptionEvents = activeSeries ? await listTreatmentExceptionEvents(userId, activeSeries.id) : [];
 
@@ -40,6 +46,7 @@ export async function GET(request: Request) {
       reminderSettings: await getOrCreateReminderSettings(userId),
       activeSeries,
       planProgress,
+      appointmentExtensionSuggestion,
       exceptionEvents
     });
   } catch (error) {
@@ -75,10 +82,16 @@ export async function PATCH(request: Request) {
       trays: plannedTrays,
       timeZone
     }) : null;
+    const appointmentExtensionSuggestion = activeSeries ? getAppointmentExtensionSuggestion({
+      currentTrayNumber: activeSeries.currentTrayNumber,
+      totalTrays: activeSeries.totalTrays,
+      appointmentDate: activeSeries.appointmentDate,
+      trays: plannedTrays
+    }) : null;
 
     const exceptionEvents = activeSeries ? await listTreatmentExceptionEvents(userId, activeSeries.id) : [];
 
-    return apiJson({ treatmentPlan, reminderSettings, activeSeries, planProgress, exceptionEvents });
+    return apiJson({ treatmentPlan, reminderSettings, activeSeries, planProgress, appointmentExtensionSuggestion, exceptionEvents });
   } catch (error) {
     return apiError(error);
   }

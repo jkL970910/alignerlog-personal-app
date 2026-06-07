@@ -87,11 +87,15 @@ Important boundary: generated rows are planned schedule data, not proof of actua
 
 ### Progress Metrics
 
-- Current tray: `第 X / Y 副`.
+- Current stage card: show stage type, current-stage tray count, and `正在佩戴第 N 副`.
+- Current stage completion: derived only from the current known series.
+- Current tray cycle progress: derived from current tray day and planned tray interval.
+- Do not present an overall-treatment completion percentage unless the value is clinically reliable and explicitly sourced.
 - Current tray day: `第 N 天 / 计划 M 天`.
 - Days until next planned change.
 - Trays remaining in current known series.
 - Estimated current-series end date.
+- If the current stage is on its final tray and the appointment date is later than the planned final-tray end date, default to recommending `延戴到复诊日`; the user must confirm before the schedule is adjusted.
 - Today wear time vs goal.
 - 7-day adherence percentage.
 - Recent missed hours.
@@ -112,6 +116,7 @@ Important boundary: generated rows are planned schedule data, not proof of actua
 - 等待 refinement / rescan.
 - 等待保持器.
 - 医生要求继续佩戴当前/上一副.
+- 复诊衔接: when the last tray ends before the next doctor appointment, surface a confirmable extension to the appointment date instead of silently changing the plan.
 
 Exception flows should record events and update the schedule when appropriate. They must include clinical safety copy and avoid giving treatment instructions.
 
@@ -171,4 +176,3 @@ Persona: Chinese-speaking clear-aligner treatment administration assistant. It e
 Canonical short disclaimer:
 
 > Loo牙管理器用于记录和理解你的佩戴计划，不提供诊断或医疗决策。牙套不贴合、疼痛、损坏、丢失或是否换下一副，请以牙医/正畸医生指导为准。
-

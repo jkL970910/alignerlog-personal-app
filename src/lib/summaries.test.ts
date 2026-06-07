@@ -88,7 +88,84 @@ describe("calculateHistoryMetrics", () => {
 
     expect(metrics.goalAchievementRate).toBe(100);
     expect(metrics.longestGoalStreak).toBe(1);
+    expect(metrics.currentGoalStreak).toBe(1);
     expect(metrics.sevenDayAverage).toBe(1380);
+    expect(metrics.monthlyGoalStats).toMatchObject({
+      month: "2026-06",
+      goalMetDays: 1,
+      trackedDays: 1,
+      recordedDays: 1,
+      elapsedDays: 1,
+      recordedGoalRate: 100,
+      calendarGoalRate: 100
+    });
+  });
+
+  it("tracks the current goal streak from the latest completed days", () => {
+    const metrics = calculateHistoryMetrics([
+      createSummary({ date: "2026-06-01", goalMet: true }),
+      createSummary({ date: "2026-06-02", goalMet: false }),
+      createSummary({ date: "2026-06-03", goalMet: true }),
+      createSummary({ date: "2026-06-04", goalMet: true }),
+      createSummary({ date: "2026-06-05", goalMet: true })
+    ], { today: "2026-06-06" });
+
+    expect(metrics.currentGoalStreak).toBe(3);
+    expect(metrics.longestGoalStreak).toBe(3);
+  });
+
+  it("breaks the current goal streak when the latest completed day misses the goal", () => {
+    const metrics = calculateHistoryMetrics([
+      createSummary({ date: "2026-06-01", goalMet: true }),
+      createSummary({ date: "2026-06-02", goalMet: true }),
+      createSummary({ date: "2026-06-03", goalMet: false }),
+      createSummary({ date: "2026-06-04", goalMet: true }),
+      createSummary({ date: "2026-06-05", goalMet: false })
+    ], { today: "2026-06-06" });
+
+    expect(metrics.currentGoalStreak).toBe(0);
+    expect(metrics.longestGoalStreak).toBe(2);
+  });
+
+  it("calculates monthly goal stats from tracked completed days in the current month only", () => {
+    const metrics = calculateHistoryMetrics([
+      createSummary({ date: "2026-05-31", goalMet: true }),
+      createSummary({ date: "2026-06-01", goalMet: true }),
+      createSummary({ date: "2026-06-02", goalMet: false }),
+      createSummary({ date: "2026-06-03", goalMet: true }),
+      createSummary({ date: "2026-06-05", goalMet: false, hasData: false })
+    ], { today: "2026-06-06" });
+
+    expect(metrics.monthlyGoalStats).toMatchObject({
+      month: "2026-06",
+      goalMetDays: 2,
+      trackedDays: 3,
+      recordedDays: 3,
+      elapsedDays: 3,
+      recordedGoalRate: (2 / 3) * 100,
+      calendarGoalRate: (2 / 3) * 100
+    });
+    expect(metrics.overallGoalStats).toMatchObject({
+      goalMetDays: 3,
+      trackedDays: 4,
+      goalRate: 75
+    });
+  });
+
+  it("does not count pre-tracking plan dates as missed but includes manually backfilled sessions", () => {
+    const metrics = calculateHistoryMetrics([
+      createSummary({ date: "2026-06-01", goalMet: false, hasData: false }),
+      createSummary({ date: "2026-06-02", goalMet: true, hasData: true }),
+      createSummary({ date: "2026-06-03", goalMet: false, hasData: false }),
+      createSummary({ date: "2026-06-04", goalMet: true }),
+      createSummary({ date: "2026-06-05", goalMet: false })
+    ], { today: "2026-06-06" });
+
+    expect(metrics.monthlyGoalStats).toMatchObject({
+      goalMetDays: 2,
+      trackedDays: 3,
+      recordedGoalRate: (2 / 3) * 100
+    });
   });
 });
 
@@ -196,3 +273,18 @@ describe("calculateDailySummary", () => {
     expect(summary.hasData).toBe(true);
   });
 });
+
+function createSummary(overrides: Partial<Parameters<typeof calculateHistoryMetrics>[0][number]>): Parameters<typeof calculateHistoryMetrics>[0][number] {
+  return {
+    date: "2026-06-01",
+    offMinutes: 60,
+    wearMinutes: 1380,
+    goalMinutes: 1320,
+    trayNumber: 1,
+    sessionCount: 1,
+    longestOffSessionMinutes: 60,
+    goalMet: true,
+    hasData: true,
+    ...overrides
+  };
+}

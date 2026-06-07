@@ -300,6 +300,35 @@ export async function createDentalPhotoRecord(params: {
   return mapDentalPhotoRecord(created);
 }
 
+export async function updateDentalPhotoRecord(params: {
+  userId: string;
+  photoId: string;
+  date: string;
+  stageName?: string;
+  trayNumber?: number | null;
+  viewType: DentalPhotoViewType;
+  note?: string;
+}) {
+  const db = getDb();
+  const [updated] = await db.update(dentalPhotoRecords)
+    .set({
+      date: params.date,
+      stageName: params.stageName?.trim().slice(0, 80) ?? "",
+      trayNumber: params.trayNumber ?? null,
+      viewType: params.viewType,
+      note: params.note?.trim().slice(0, 1000) ?? "",
+      updatedAt: new Date()
+    })
+    .where(and(eq(dentalPhotoRecords.userId, params.userId), eq(dentalPhotoRecords.id, params.photoId)))
+    .returning();
+
+  if (!updated) {
+    throw new Error("找不到这张照片记录。");
+  }
+
+  return mapDentalPhotoRecord(updated);
+}
+
 export async function deleteDentalPhotoRecord(userId: string, photoId: string) {
   const db = getDb();
   const [deleted] = await db.delete(dentalPhotoRecords)

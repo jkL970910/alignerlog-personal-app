@@ -175,7 +175,9 @@ export type AppSnapshot = {
   reminderSettings: ReminderSettings;
   activeSession: OffTraySession | null;
   todaySummary: DailySummary;
+  activeSeries?: TreatmentSeries | null;
   planProgress?: PlanProgress | null;
+  appointmentExtensionSuggestion?: AppointmentExtensionSuggestion | null;
   activeException?: TreatmentExceptionEvent | null;
   recentExceptions?: TreatmentExceptionEvent[];
 };
@@ -295,6 +297,7 @@ export type TreatmentPlanImportPreview = {
   series: Omit<TreatmentSeries, "id" | "userId" | "createdAt" | "updatedAt">;
   trays: PlannedTrayDraft[];
   progress: PlanProgress;
+  appointmentExtensionSuggestion: AppointmentExtensionSuggestion | null;
   safetyNote: string;
 };
 
@@ -311,4 +314,12 @@ export type PlanProgress = {
   nextChangeDate: string | null;
   estimatedSeriesEndDate: string | null;
   label: "on_track" | "not_started" | "paused" | "holding" | "retainer";
+};
+
+export type AppointmentExtensionSuggestion = {
+  kind: "extend_last_tray_to_appointment";
+  trayNumber: number;
+  plannedEndDate: string;
+  appointmentDate: string;
+  extensionDays: number;
 };
