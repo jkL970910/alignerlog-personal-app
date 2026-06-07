@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Camera, CheckCircle2, ChevronRight, ImagePlus, Images, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Camera, CheckCircle2, ImagePlus, Images, Loader2, Pencil, Trash2 } from "lucide-react";
 
 import { getClientDateKey, timeZoneHeaders } from "@/lib/client-time-zone";
 import type { DentalPhotoRecord, DentalPhotoViewType, PlanProgress, TreatmentSeries } from "@/lib/types";
@@ -410,6 +410,9 @@ function PhotoUploadForm(props: {
   onFileChange: (file: File | null) => void;
   onSubmit: () => void;
 }) {
+  const standardOptions = viewOptions.filter((option) => standardViewTypes.includes(option.value));
+  const extraOptions = viewOptions.filter((option) => !standardViewTypes.includes(option.value));
+
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium text-ink">
@@ -448,18 +451,36 @@ function PhotoUploadForm(props: {
         </label>
       </div>
 
-      <label className="block text-sm font-medium text-ink">
-        拍摄角度
-        <select
-          className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-          onChange={(event) => props.onDraftChange({ ...props.draft, viewType: event.target.value as DentalPhotoViewType })}
-          value={props.draft.viewType}
-        >
-          {viewOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+      <div className="space-y-2">
+        <div>
+          <p className="text-sm font-medium text-ink">选择拍摄角度</p>
+          <p className="mt-1 text-xs leading-5 text-ink/50">先选角度，再上传照片。保持同角度才方便后续对比。</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {standardOptions.map((option) => (
+            <button
+              className={`min-h-16 rounded-md border px-3 py-2 text-left transition ${props.draft.viewType === option.value ? "border-[#69ad9e] bg-[#d6f2ec]/70 text-ink ring-2 ring-[#69ad9e]/15" : "border-ink/10 bg-white text-ink"}`}
+              key={option.value}
+              onClick={() => props.onDraftChange({ ...props.draft, viewType: option.value })}
+              type="button"
+            >
+              <span className="text-sm font-semibold">{option.label}</span>
+              <span className="mt-1 block text-[0.7rem] leading-4 text-ink/50">{option.helper}</span>
+            </button>
           ))}
-        </select>
-      </label>
+        </div>
+        {extraOptions.map((option) => (
+          <button
+            className={`min-h-14 w-full rounded-md border px-3 py-2 text-left transition ${props.draft.viewType === option.value ? "border-[#69ad9e] bg-[#d6f2ec]/70 text-ink ring-2 ring-[#69ad9e]/15" : "border-ink/10 bg-white text-ink"}`}
+            key={option.value}
+            onClick={() => props.onDraftChange({ ...props.draft, viewType: option.value })}
+            type="button"
+          >
+            <span className="text-sm font-semibold">{option.label}</span>
+            <span className="mt-1 block text-xs leading-5 text-ink/50">{option.helper}</span>
+          </button>
+        ))}
+      </div>
 
       <div className="space-y-2">
         <p className="text-sm font-medium text-ink">照片</p>
@@ -553,10 +574,12 @@ function StandardPhotoChecklist(props: {
           </div>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs text-ink/45">下一张建议</p>
-              <p className="mt-1 text-lg font-semibold text-ink">{nextMissing ? nextMissing.label : "本组已完整"}</p>
+              <p className="text-xs text-ink/45">标准角度</p>
+              <p className="mt-1 text-lg font-semibold text-ink">
+                {nextMissing ? `还差 ${props.coverage.length - capturedCount} 个角度` : "本组已完整"}
+              </p>
               <p className="mt-1 text-xs leading-5 text-ink/55">
-                {nextMissing ? nextMissing.helper : "可以进入阶段对比，查看同角度变化。"}
+                {nextMissing ? `建议下一张拍 ${nextMissing.label}；具体角度在添加照片时选择。` : "可以进入阶段对比，查看同角度变化。"}
               </p>
             </div>
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#91cfc3]/25 text-sage">
@@ -570,7 +593,7 @@ function StandardPhotoChecklist(props: {
             type="button"
           >
             <ImagePlus className="h-4 w-4" />
-            {nextMissing ? `拍摄${nextMissing.label}` : "继续新增照片"}
+            添加照片
           </button>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -603,26 +626,6 @@ function StandardPhotoChecklist(props: {
           想参考侧脸变化时，用“侧颜/其他”记录同光线、同距离照片即可；本应用不做嘴凸角度测量或治疗判断。
         </div>
       </div>
-
-      <div className="grid grid-cols-2 gap-2 p-3">
-        {props.coverage.map((item) => (
-          <button
-            className={`min-h-20 rounded-md border px-3 py-2 text-left transition ${item.captured ? "border-mint/25 bg-mint/5 text-ink" : "border-amber/25 bg-white text-ink"}`}
-            key={item.viewType}
-            onClick={() => props.onPick(item.viewType)}
-            type="button"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold">{item.label}</span>
-              {item.captured ? <CheckCircle2 className="h-4 w-4 text-mint" /> : <ChevronRight className="h-4 w-4 text-amber" />}
-            </div>
-            <p className="mt-1 text-[0.7rem] leading-4 text-ink/50">{item.helper}</p>
-          </button>
-        ))}
-      </div>
-      <p className="px-3 pb-3 text-xs leading-5 text-ink/45">
-        侧颜、嘴凸或贴合变化仅做长期观察记录；是否调整牙套请以牙医/正畸医生指导为准。
-      </p>
     </div>
   );
 }
