@@ -270,7 +270,7 @@ export function TodayDashboard() {
                 {planProgress.nextChangeDate ? <p className="text-xs text-ink/45">{formatWeekday(planProgress.nextChangeDate)}</p> : null}
               </div>
             </div>
-            <DualProgressRings
+            <PlanProgressRings
               stagePercent={stagePercent}
               trayPercent={currentTrayPercent}
             />
@@ -627,7 +627,7 @@ function formatExceptionType(type: NonNullable<AppSnapshot["activeException"]>["
   return labels[type];
 }
 
-function DualProgressRings(props: { stagePercent: number; trayPercent: number }) {
+function PlanProgressRings(props: { stagePercent: number; trayPercent: number }) {
   const stagePercent = clampPercent(props.stagePercent);
   const trayPercent = clampPercent(props.trayPercent);
   const stageRing = getCircleProgress(42, stagePercent);
@@ -635,7 +635,7 @@ function DualProgressRings(props: { stagePercent: number; trayPercent: number })
 
   return (
     <div className="shrink-0 text-center">
-      <p className="mb-1 text-[0.65rem] font-medium text-ink/50">阶段完成进度</p>
+      <p className="mb-1 text-[0.65rem] font-medium text-ink/50">阶段 {formatPercent(stagePercent)}</p>
       <div className="relative h-24 w-24">
         <svg aria-hidden="true" className="absolute inset-0 h-24 w-24 -rotate-90" viewBox="0 0 96 96">
           <circle cx="48" cy="48" fill="none" r="42" stroke="#e8efeb" strokeWidth="7" />
@@ -664,13 +664,22 @@ function DualProgressRings(props: { stagePercent: number; trayPercent: number })
           />
         </svg>
         <div className="absolute inset-6 flex flex-col items-center justify-center rounded-full bg-white">
-          <p className="text-sm font-semibold leading-none text-ink">{formatPercent(stagePercent)}</p>
-          <p className="mt-1 text-[0.6rem] leading-none text-ink/45">阶段</p>
+          <p className="text-sm font-semibold leading-none text-ink">{formatPercent(trayPercent)}</p>
+          <p className="mt-1 text-[0.6rem] leading-none text-ink/45">当前副</p>
         </div>
       </div>
-      <p className="mt-1 text-[0.65rem] leading-4 text-ink/50">当前副 {formatPercent(trayPercent)}</p>
+      <p className="mt-1 text-[0.6rem] leading-4 text-ink/45">外圈阶段 · 内圈当前副</p>
     </div>
   );
+}
+
+function getCircleProgress(radius: number, percent: number) {
+  const circumference = 2 * Math.PI * radius;
+
+  return {
+    circumference,
+    offset: circumference * (1 - clampPercent(percent) / 100)
+  };
 }
 
 function getCurrentTrayProgressPercent(progress: NonNullable<AppSnapshot["planProgress"]>) {
@@ -690,15 +699,6 @@ function getStageProgressPercent(progress: NonNullable<AppSnapshot["planProgress
   const currentTrayFraction = progress.label === "on_track" ? clampPercent(currentTrayPercent) / 100 : 0;
 
   return clampPercent(((completedTrays + currentTrayFraction) / progress.totalTrays) * 100);
-}
-
-function getCircleProgress(radius: number, percent: number) {
-  const circumference = 2 * Math.PI * radius;
-
-  return {
-    circumference,
-    offset: circumference * (1 - clampPercent(percent) / 100)
-  };
 }
 
 function clampPercent(value: number) {

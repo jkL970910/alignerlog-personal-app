@@ -153,7 +153,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
       setDraft((current) => ({
         ...current,
         note: "",
-        viewType: getNextMissingViewType(nextPhotos, current, props.embeddedDate) ?? current.viewType
+        viewType: getNextMissingViewType(nextPhotos, current) ?? current.viewType
       }));
       setMessage("已保存照片记录。");
       setUploadOpen(false);
@@ -228,7 +228,7 @@ export function PhotoRecordsDashboard(props: PhotoRecordsDashboardProps = {}) {
   const comparisonOnly = props.mode === "comparison";
   const visiblePhotos = props.embeddedDate ? photos.filter((photo) => photo.date === props.embeddedDate) : photos;
   const comparisonPhotos = useMemo(() => filterPhotosByRange(photos, photoRangePreset), [photoRangePreset, photos]);
-  const standardCoverage = useMemo(() => getStandardCoverage(photos, draft, props.embeddedDate), [draft, photos, props.embeddedDate]);
+  const standardCoverage = useMemo(() => getStandardCoverage(photos, draft), [draft, photos]);
   const sameViewSuggestions = useMemo(() => getSameViewCompareSuggestions(comparisonOnly ? comparisonPhotos : visiblePhotos), [comparisonOnly, comparisonPhotos, visiblePhotos]);
   const showInlinePhotoList = Boolean(props.compact && props.deferUploadForm);
 
@@ -501,7 +501,7 @@ function PhotoUploadForm(props: {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-ink">选择拍摄角度</p>
-            <p className="mt-1 text-xs leading-5 text-ink/50">标准角度完成度 {capturedCount}/6；保持同角度才方便后续对比。</p>
+            <p className="mt-1 text-xs leading-5 text-ink/50">本阶段标准照片 {capturedCount}/6；保持同角度才方便后续对比。</p>
           </div>
           <span className="shrink-0 rounded-full bg-[#fff6bd] px-2 py-1 text-xs font-semibold text-ink">
             {capturedCount}/6
@@ -652,12 +652,12 @@ function StandardPhotoChecklist(props: {
           </div>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs text-ink/45">标准角度</p>
+              <p className="text-xs text-ink/45">本阶段标准照片</p>
               <p className="mt-1 text-lg font-semibold text-ink">
                 {nextMissing ? `还差 ${props.coverage.length - capturedCount} 个角度` : "本组已完整"}
               </p>
               <p className="mt-1 text-xs leading-5 text-ink/55">
-                {nextMissing ? `建议下一张拍 ${nextMissing.label}；具体角度在添加照片时选择。` : "可以进入阶段对比，查看同角度变化。"}
+                {nextMissing ? `建议本阶段补一张 ${nextMissing.label}；具体角度在添加照片时选择。` : "可以进入阶段对比，查看同角度变化。"}
               </p>
             </div>
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#91cfc3]/25 text-sage">
@@ -1061,16 +1061,8 @@ function viewHelper(viewType: DentalPhotoViewType) {
   return viewOptions.find((option) => option.value === viewType)?.helper ?? "";
 }
 
-function getStandardCoverage(photos: DentalPhotoRecord[], draft: UploadDraft, embeddedDate?: string) {
+function getStandardCoverage(photos: DentalPhotoRecord[], draft: UploadDraft) {
   const targetPhotos = photos.filter((photo) => {
-    if (embeddedDate && photo.date !== embeddedDate) {
-      return false;
-    }
-
-    if (draft.trayNumber && photo.trayNumber !== Number(draft.trayNumber)) {
-      return false;
-    }
-
     if (draft.stageName && photo.stageName && photo.stageName !== draft.stageName) {
       return false;
     }
@@ -1090,8 +1082,8 @@ function getStandardCoverage(photos: DentalPhotoRecord[], draft: UploadDraft, em
   });
 }
 
-function getNextMissingViewType(photos: DentalPhotoRecord[], draft: UploadDraft, embeddedDate?: string) {
-  return getStandardCoverage(photos, draft, embeddedDate).find((item) => !item.captured)?.viewType ?? null;
+function getNextMissingViewType(photos: DentalPhotoRecord[], draft: UploadDraft) {
+  return getStandardCoverage(photos, draft).find((item) => !item.captured)?.viewType ?? null;
 }
 
 function getSameViewCompareSuggestions(photos: DentalPhotoRecord[]) {
