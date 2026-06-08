@@ -30,8 +30,12 @@ type NoteModalState = {
 } | null;
 
 export function CalendarDashboard() {
-  const [monthDate, setMonthDate] = useState(() => new Date());
-  const [selectedDate, setSelectedDate] = useState(() => getClientDateKey());
+  const [monthDate, setMonthDate] = useState(() => {
+    const dateParam = getCalendarDateParam();
+
+    return dateParam ? parseISO(dateParam) : new Date();
+  });
+  const [selectedDate, setSelectedDate] = useState(() => getCalendarDateParam() ?? getClientDateKey());
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [noteModal, setNoteModal] = useState<NoteModalState>(null);
   const [savingNote, setSavingNote] = useState(false);
@@ -429,4 +433,14 @@ function getDayStatusLabel(day: CalendarDay) {
   }
 
   return "低于目标";
+}
+
+function getCalendarDateParam() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const value = new URLSearchParams(window.location.search).get("date");
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") ? value : null;
 }

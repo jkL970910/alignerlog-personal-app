@@ -11,7 +11,6 @@ import type { DailySummary, OffTrayReason, OffTraySession } from "@/lib/types";
 import type { HistoryMetrics } from "@/lib/summaries";
 
 import { MetricCard } from "./metric-card";
-import { PhotoRecordsDashboard } from "./photo-records-dashboard";
 import { SetupWarning } from "./setup-warning";
 
 type HistoryPayload = {
@@ -318,12 +317,20 @@ export function HistoryDashboard() {
                   pending={sessionPending}
                   sessions={sessions}
                 />
-                <PhotoRecordsDashboard
-                  compact
-                  embeddedDate={summary.date}
-                  helper="给这一天补传阶段照片，适合复盘某次换期或取下记录附近的牙齿状态。"
-                  title="补传当天阶段照片"
-                />
+                <section className="rounded-lg border border-ink/10 bg-white/80 p-4 shadow-sm">
+                  <p className="text-xs font-semibold tracking-[0.16em] text-sage">阶段照片</p>
+                  <h3 className="mt-1 text-lg font-semibold text-ink">去日历管理当天照片</h3>
+                  <p className="mt-1 text-sm leading-6 text-ink/60">
+                    照片上传、角度完成度和阶段对比都在日历当天详情里处理，避免趋势页重复一套拍照流程。
+                  </p>
+                  <button
+                    className="mt-3 min-h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white"
+                    onClick={() => { window.location.href = `/calendar?date=${encodeURIComponent(summary.date)}`; }}
+                    type="button"
+                  >
+                    打开这一天的照片档案
+                  </button>
+                </section>
               </div>
             ) : null}
           </div>
