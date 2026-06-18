@@ -100,7 +100,7 @@ export default {
       const url = new URL(request.url);
 
       if (url.pathname === "/schedule") {
-        return scheduleReminder(request, env);
+        return await scheduleReminder(request, env);
       }
 
       if (url.pathname === "/health") {
