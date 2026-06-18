@@ -1300,6 +1300,19 @@ export async function updateActiveTreatmentSeries(userId: string, preview: Treat
       ? await tx.insert(plannedTrays).values(plannedValues).returning()
       : [];
 
+    await tx.update(treatmentExceptionEvents)
+      .set({
+        status: "resolved",
+        resolvedAt: now,
+        cancelledAt: null,
+        updatedAt: now
+      })
+      .where(and(
+        eq(treatmentExceptionEvents.userId, userId),
+        eq(treatmentExceptionEvents.seriesId, series.id),
+        eq(treatmentExceptionEvents.status, "active")
+      ));
+
     await tx.insert(treatmentPlans).values({
       userId,
       startDate: preview.series.startDate,

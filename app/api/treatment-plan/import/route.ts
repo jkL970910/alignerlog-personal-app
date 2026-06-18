@@ -3,7 +3,7 @@ import { z } from "zod";
 import { buildTreatmentPlanImportPreview } from "@/lib/treatment-plan";
 import { requireCurrentUserId } from "@/server/auth";
 import { apiError, apiJson } from "@/server/http";
-import { getActiveTreatmentSeries, saveTreatmentPlanImport, updateActiveTreatmentSeries } from "@/server/repository";
+import { getActiveTreatmentSeries, listTreatmentExceptionEvents, saveTreatmentPlanImport, updateActiveTreatmentSeries } from "@/server/repository";
 import { getRequestTimeZone } from "@/server/time-zone";
 
 export const runtime = "nodejs";
@@ -42,7 +42,11 @@ export async function POST(request: Request) {
     const activeSeries = await getActiveTreatmentSeries(userId);
 
     if (parsed.mode === "update") {
-      return apiJson(await updateActiveTreatmentSeries(userId, preview));
+      const result = await updateActiveTreatmentSeries(userId, preview);
+      return apiJson({
+        ...result,
+        exceptionEvents: await listTreatmentExceptionEvents(userId, result.series.id)
+      });
     }
 
     if (parsed.mode === "confirm" && activeSeries) {

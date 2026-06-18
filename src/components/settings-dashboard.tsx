@@ -133,6 +133,7 @@ export function SettingsDashboard() {
   const [exceptionNote, setExceptionNote] = useState("");
   const [exceptionMessage, setExceptionMessage] = useState<string | null>(null);
   const [exceptionActionPendingId, setExceptionActionPendingId] = useState<string | null>(null);
+  const [exceptionHistoryOpen, setExceptionHistoryOpen] = useState(false);
   const [appointmentExtendPending, setAppointmentExtendPending] = useState(false);
 
   useEffect(() => {
@@ -312,6 +313,7 @@ export function SettingsDashboard() {
         ...settings,
         activeSeries: payload.series,
         planProgress: payload.progress,
+        exceptionEvents: payload.exceptionEvents ?? settings.exceptionEvents,
         treatmentPlan: {
           ...settings.treatmentPlan,
           startDate: payload.series.startDate,
@@ -512,6 +514,8 @@ export function SettingsDashboard() {
   const detectedTimeZone = getDetectedTimeZone();
   const exportTimeZone = encodeURIComponent(timeZone);
   const appointmentExtensionSuggestion = settings.appointmentExtensionSuggestion ?? null;
+  const activeExceptionEvents = settings.exceptionEvents.filter((event) => event.status === "active");
+  const historicalExceptionEvents = settings.exceptionEvents.filter((event) => event.status !== "active");
 
   return (
     <div className="space-y-4">
@@ -684,10 +688,10 @@ export function SettingsDashboard() {
                 </div>
               ) : null}
               {exceptionMessage ? <p className={`mt-3 text-xs ${exceptionMessage.startsWith("已") ? "text-sage" : "text-coral"}`}>{exceptionMessage}</p> : null}
-              {settings.exceptionEvents.length ? (
+              {activeExceptionEvents.length ? (
                 <div className="mt-4 space-y-2">
-                  <p className="text-xs font-semibold tracking-[0.16em] text-ink/45">最近记录</p>
-                  {settings.exceptionEvents.map((event) => (
+                  <p className="text-xs font-semibold tracking-[0.16em] text-ink/45">待处理异常</p>
+                  {activeExceptionEvents.map((event) => (
                     <div className="rounded-md bg-mist/60 p-2 text-xs leading-5 text-ink/60" key={event.id}>
                       <span className="font-semibold text-ink">{formatExceptionType(event.eventType)}</span>
                       <span> · {event.eventDate}</span>
@@ -717,6 +721,35 @@ export function SettingsDashboard() {
                       ) : null}
                     </div>
                   ))}
+                </div>
+              ) : null}
+              {!activeExceptionEvents.length ? (
+                <p className="mt-4 rounded-md bg-mist/50 p-3 text-xs leading-5 text-ink/60">
+                  当前没有待处理异常。若你已经修改了当前阶段计划，相关异常会自动归档为已解决。
+                </p>
+              ) : null}
+              {historicalExceptionEvents.length ? (
+                <div className="mt-3">
+                  <button
+                    className="text-xs font-semibold text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+                    onClick={() => setExceptionHistoryOpen((open) => !open)}
+                    type="button"
+                  >
+                    {exceptionHistoryOpen ? "隐藏历史记录" : `查看历史记录（${historicalExceptionEvents.length}）`}
+                  </button>
+                  {exceptionHistoryOpen ? (
+                    <div className="mt-2 space-y-2">
+                      {historicalExceptionEvents.map((event) => (
+                        <div className="rounded-md bg-mist/40 p-2 text-xs leading-5 text-ink/50" key={event.id}>
+                          <span className="font-semibold text-ink/70">{formatExceptionType(event.eventType)}</span>
+                          <span> · {event.eventDate}</span>
+                          <span> · {formatExceptionStatus(event.status)}</span>
+                          {event.extensionDays ? <span> · 延长 {event.extensionDays} 天</span> : null}
+                          {event.note ? <p className="mt-1">{event.note}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
