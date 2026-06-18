@@ -96,20 +96,27 @@ async function deliverReminder(message: ReminderMessage, env: Env): Promise<Resp
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+    try {
+      const url = new URL(request.url);
 
-    if (url.pathname === "/schedule") {
-      return scheduleReminder(request, env);
+      if (url.pathname === "/schedule") {
+        return scheduleReminder(request, env);
+      }
+
+      if (url.pathname === "/health") {
+        return Response.json({ ok: true, mode: "queue-delayed-reminders" });
+      }
+
+      return Response.json({
+        ok: true,
+        message: "Use POST /schedule to enqueue a user/session reminder."
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Worker request failed.";
+      const status = message === "Unauthorized." ? 401 : 500;
+
+      return Response.json({ error: message }, { status });
     }
-
-    if (url.pathname === "/health") {
-      return Response.json({ ok: true, mode: "queue-delayed-reminders" });
-    }
-
-    return Response.json({
-      ok: true,
-      message: "Use POST /schedule to enqueue a user/session reminder."
-    });
   },
 
   async queue(batch: MessageBatch<ReminderMessage>, env: Env, _ctx: ExecutionContext): Promise<void> {
