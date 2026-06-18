@@ -3,7 +3,13 @@ main = "workers/reminder-cron.ts"
 compatibility_date = "2026-06-04"
 
 [vars]
-REMINDER_WORKER_URL = "https://alignerlog-personal-app.vercel.app/api/workers/reminders/run"
+REMINDER_WORKER_URL = "https://alignerlog-personal-app.vercel.app/api/workers/reminders/send-one"
 
-[triggers]
-crons = ["*/15 * * * *"]
+[[queues.producers]]
+binding = "REMINDER_QUEUE"
+queue = "loo-dental-reminders"
+
+[[queues.consumers]]
+queue = "loo-dental-reminders"
+max_batch_size = 10
+max_batch_timeout = 5

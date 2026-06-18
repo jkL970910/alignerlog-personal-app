@@ -8,6 +8,7 @@ const publicPaths = [
   "/api/auth/login",
   "/api/auth/register",
   "/api/workers/reminders/run",
+  "/api/workers/reminders/send-one",
   "/manifest.webmanifest",
   "/sw.js",
   "/icon.svg"

@@ -23,6 +23,7 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=<web-push public key>
 VAPID_PRIVATE_KEY=<web-push private key>
 VAPID_SUBJECT=mailto:<owner-email>
 REMINDER_WORKER_SECRET=<manual worker secret>
+REMINDER_WORKER_SCHEDULE_URL=https://loo-dental-reminder-cron.jkliu97.workers.dev/schedule
 CRON_SECRET=<vercel cron secret>
 REPOSITORY_MODE=postgres-drizzle
 ```
@@ -88,17 +89,20 @@ enable push from Settings -> 提醒偏好. Meal/off-tray reminders are not autom
 meal detection: the reminder job is scheduled only after the user taps
 `我取下牙套了`.
 
-Vercel Hobby does not support high-frequency cron schedules, so use the included
-Cloudflare Worker Cron for production reminder checks. The worker currently runs
-every 15 minutes to reduce Neon compute usage, so a 30-minute off-tray reminder
-may arrive up to one polling interval late. The worker calls the protected Vercel
-endpoint and does not store user data. The endpoint accepts
-either:
+The production path uses Cloudflare Queues with delayed delivery. When the user
+taps `我取下牙套了`, the app writes a `reminder_jobs` row and calls the Worker
+`/schedule` endpoint. The queued message is keyed by `userId + sessionId + dueAt`
+and, after the delay, calls the protected Vercel `/api/workers/reminders/send-one`
+endpoint for that one session. This avoids proactive database polling.
+
+The legacy `/api/workers/reminders/run` endpoint remains available as a manual
+catch-up fallback, but it is no longer the scheduled production path. Worker
+endpoints accept:
 
 - `Authorization: Bearer $CRON_SECRET` from an external scheduler.
 - `x-worker-secret: $REMINDER_WORKER_SECRET` for manual smoke calls.
 
-Manual smoke without sending user data:
+Manual catch-up smoke without sending user data:
 
 ```bash
 curl -i -X POST \
@@ -106,9 +110,10 @@ curl -i -X POST \
   https://<vercel-production-domain>/api/workers/reminders/run
 ```
 
-Cloudflare Worker Cron deploy:
+Cloudflare Queue + Worker deploy:
 
 ```bash
+npx wrangler queues create loo-dental-reminders
 npx wrangler secret put REMINDER_WORKER_SECRET
 npx wrangler deploy
 ```

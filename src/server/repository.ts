@@ -6,6 +6,7 @@ import { addDaysToDateKey, dayBounds, todayKey } from "@/lib/dates";
 import type { DentalPhotoViewType, OffTrayReason, PlannedTrayDraft, ReminderSettings, TreatmentExceptionStatus, TreatmentExceptionType, TreatmentPlan, TreatmentPlanImportPreview, WearAction } from "@/lib/types";
 
 import { mapDailyNote, mapDentalPhotoRecord, mapLooDentalAiUsageLog, mapLooDentalMinisterChatMessage, mapLooDentalMinisterChatSession, mapOffTraySession, mapPlannedTray, mapPushSubscription, mapReminderJob, mapReminderSettings, mapTreatmentExceptionEvent, mapTreatmentPlan, mapTreatmentSeries, mapUser, mapWearActionLog, mapWearState } from "./mappers";
+import { scheduleReminderDelivery } from "./reminder-scheduler";
 
 const defaultGoalMinutes = 22 * 60;
 
@@ -1440,7 +1441,12 @@ export async function scheduleMealReminderJob(userId: string, sessionId: string,
     }
   }).returning();
 
-  return mapReminderJob(job);
+  const reminderJob = mapReminderJob(job);
+  await scheduleReminderDelivery(reminderJob).catch((error) => {
+    console.error("Failed to schedule delayed reminder delivery.", error);
+  });
+
+  return reminderJob;
 }
 
 export async function cancelReminderJobsForSession(userId: string, sessionId: string) {
@@ -1466,6 +1472,20 @@ export async function listDueReminderJobs(limit = 25) {
     .limit(limit);
 
   return rows.map(mapReminderJob);
+}
+
+export async function getScheduledReminderJobForSession(userId: string, sessionId: string) {
+  const db = getDb();
+  const [row] = await db.select().from(reminderJobs)
+    .where(and(
+      eq(reminderJobs.userId, userId),
+      eq(reminderJobs.sessionId, sessionId),
+      eq(reminderJobs.kind, "off_tray_return"),
+      eq(reminderJobs.status, "scheduled")
+    ))
+    .limit(1);
+
+  return row ? mapReminderJob(row) : null;
 }
 
 export async function markReminderJobSent(jobId: string) {
