@@ -167,7 +167,7 @@ export const reminderSettings = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     userId: uuid("user_id").notNull(),
     enableMealReminder: boolean("enable_meal_reminder").notNull().default(false),
-    mealReminderMinutes: integer("meal_reminder_minutes").notNull().default(45),
+    mealReminderMinutes: integer("meal_reminder_minutes").notNull().default(30),
     enableBedtimeReminder: boolean("enable_bedtime_reminder").notNull().default(false),
     bedtimeReminderTime: varchar("bedtime_reminder_time", { length: 5 }).notNull().default("22:30"),
     enableTrayChangeReminder: boolean("enable_tray_change_reminder").notNull().default(false),

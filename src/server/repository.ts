@@ -149,7 +149,7 @@ export async function getOrCreateReminderSettings(userId: string) {
   const [created] = await db.insert(reminderSettings).values({
     userId,
     enableMealReminder: false,
-    mealReminderMinutes: 45,
+    mealReminderMinutes: 30,
     enableBedtimeReminder: false,
     bedtimeReminderTime: "22:30",
     enableTrayChangeReminder: false,

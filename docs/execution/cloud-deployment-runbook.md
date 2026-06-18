@@ -88,9 +88,11 @@ enable push from Settings -> 提醒偏好. Meal/off-tray reminders are not autom
 meal detection: the reminder job is scheduled only after the user taps
 `我取下牙套了`.
 
-Vercel Hobby does not support five-minute cron schedules, so use the included
-Cloudflare Worker Cron for production five-minute scheduling. The worker calls
-the protected Vercel endpoint and does not store user data. The endpoint accepts
+Vercel Hobby does not support high-frequency cron schedules, so use the included
+Cloudflare Worker Cron for production reminder checks. The worker currently runs
+every 15 minutes to reduce Neon compute usage, so a 30-minute off-tray reminder
+may arrive up to one polling interval late. The worker calls the protected Vercel
+endpoint and does not store user data. The endpoint accepts
 either:
 
 - `Authorization: Bearer $CRON_SECRET` from an external scheduler.
