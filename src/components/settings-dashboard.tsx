@@ -401,6 +401,16 @@ export function SettingsDashboard() {
     }
   }
 
+  function reuseException(event: TreatmentExceptionEvent) {
+    setExceptionType(event.eventType);
+    setExceptionDate(event.eventDate);
+    setExceptionDays(event.extensionDays ?? 1);
+    setExceptionNote(event.note ? `基于历史记录重新创建：${event.note}` : "基于历史记录重新创建。");
+    setExceptionOpen(true);
+    setExceptionHistoryOpen(false);
+    setExceptionMessage("已填入历史记录内容，确认后会创建一条新的待处理异常。");
+  }
+
   async function extendLastTrayToAppointment() {
     if (!settings?.appointmentExtensionSuggestion) {
       return;
@@ -746,6 +756,13 @@ export function SettingsDashboard() {
                           <span> · {formatExceptionStatus(event.status)}</span>
                           {event.extensionDays ? <span> · 延长 {event.extensionDays} 天</span> : null}
                           {event.note ? <p className="mt-1">{event.note}</p> : null}
+                          <button
+                            className="mt-2 min-h-8 rounded-md border border-ink/10 px-3 text-xs font-semibold text-ink/70"
+                            onClick={() => reuseException(event)}
+                            type="button"
+                          >
+                            基于此记录新建
+                          </button>
                         </div>
                       ))}
                     </div>
